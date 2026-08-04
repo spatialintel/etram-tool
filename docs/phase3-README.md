@@ -1,6 +1,34 @@
-﻿# Phase 3 — React + Plotly/Mapbox UI
+# Phase 3 — React + Plotly UI
 
-This phase delivers a working React dashboard shell over Phase 2 outputs.
+## Canonical location (source of truth)
+
+Edit and commit only:
+
+```
+E-TRAM Tool_V7/webapp/
+```
+
+| Copy | Role |
+|------|------|
+| `webapp/` (this repo / G: project) | **Canonical** — edit here, push to GitHub |
+| `C:\temp\etram-webapp` | **Run mirror only** — npm/vite when G: drive fails (`EBADF`) |
+| `C:\temp\webapp` | **Removed / stale** — do not use |
+
+Sync after editing on G::
+
+```powershell
+.\scripts\sync_webapp_local.ps1
+cd C:\temp\etram-webapp
+npm run dev
+```
+
+If you edited on `C:\temp\etram-webapp` by mistake, pull back:
+
+```powershell
+.\scripts\sync_webapp_local.ps1 -Pull
+```
+
+GitHub remote: `https://github.com/spatialintel/etram-tool` — must match `webapp/` in this project.
 
 ## 1) Refresh data artifacts
 
@@ -8,52 +36,43 @@ This phase delivers a working React dashboard shell over Phase 2 outputs.
 python scripts/export_phase3_data.py
 ```
 
-Generates:
-- `webapp/public/data/bhavnagar-dashboard.json`
+Generates `webapp/public/data/bhavnagar-dashboard.json`.
 
-## 2) Backend API (upload + job processing)
+## 2) Backend API
 
-Run from **project root** (not `webapp/`):
+From **project root** (not `webapp/`):
 
 ```powershell
-# Windows
 .\scripts\run_api.ps1
-
-# Or manually
-cd "E-TRAM Tool_V7"
-$env:PYTHONPATH = (Get-Location).Path
-uvicorn etram:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-Health check: `http://127.0.0.1:8000/api/health`
+Health: `http://127.0.0.1:8000/api/health`
 
-## 3) Frontend run
+## 3) Frontend
 
-```bash
-cd webapp
+Prefer local mirror if G: npm fails:
+
+```powershell
+.\scripts\sync_webapp_local.ps1
+cd C:\temp\etram-webapp
 npm install
 npm run dev
 ```
 
-If `npm install` fails on the G: drive, copy `webapp` to `C:\temp\webapp` and run there.
-The Vite dev server proxies `/api` to port 8000 — keep the API running from project root.
+Vite proxies `/api` → port 8000.
 
 ## Implemented pages
 
-- Overview: daily ridership + revenue combo chart
-- Route Performance: ridership + load factor by route on selected day
-- Temporal: hourly ridership distribution
-- Stops & Map: boarding/alighting map and passenger load line for sample trip
-
-## Filters
-
-- Service date
-- Route code
-- Route direction
+- Overview (daily/weekly ridership & revenue, KPIs, deltas)
+- Route Performance
+- Route Trends
+- Temporal Analysis
+- Stops & Map
+- Efficiency Metrics
+- Conductor Revenue (feature-gated; proxy until conductor_id exists)
+- Data Management (Excel upload + job polling)
 
 ## Notes
 
-- Default view loads static JSON from `webapp/public/data/bhavnagar-dashboard.json`.
-- Upload UI posts to `POST /api/jobs`; completed jobs replace dashboard data in-memory.
-- Feature gates from DQ are shown in-app.
-- **Common error:** `Could not import module "etram"` means uvicorn was started from `webapp/` instead of project root.
+- Static JSON is the default load; uploads replace data via job API.
+- `Could not import module "etram"` → API was started from `webapp/` instead of project root.

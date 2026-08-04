@@ -1,15 +1,94 @@
-#root {
-  min-height: 100vh;
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800&display=swap');
+
+:root {
+  /* ── Page & Surface ─────────────────────────────────────── */
+  --bg-page:        #f0f2f5;
+  --bg-surface:     #ffffff;
+  --bg-sidebar:     #1a2744;
+  --bg-sidebar-hover: rgba(255, 255, 255, 0.07);
+  --bg-sidebar-active: rgba(255, 255, 255, 0.12);
+  --bg-elevated:    #f8f9fc;
+  --bg-hover:       rgba(29, 78, 216, 0.04);
+  --bg-active:      rgba(29, 78, 216, 0.08);
+  --bg-tint-green:  rgba(5, 150, 105, 0.06);
+  --bg-tint-red:    rgba(220, 38, 38, 0.05);
+  --bg-tint-amber:  rgba(217, 119, 6, 0.06);
+  --bg-tint-blue:   rgba(29, 78, 216, 0.05);
+
+  /* ── Border ─────────────────────────────────────────────── */
+  --border-subtle:  #edf0f5;
+  --border-default: #dde1ea;
+  --border-strong:  #c4cad8;
+  --border-focus:   #1d4ed8;
+
+  /* ── Text ───────────────────────────────────────────────── */
+  --text-primary:   #0d1b2a;
+  --text-secondary: #374151;
+  --text-muted:     #6b7280;
+  --text-sidebar:   rgba(255,255,255,0.65);
+  --text-sidebar-active: #ffffff;
+
+  /* ── Brand accent ───────────────────────────────────────── */
+  --blue:           #1d4ed8;
+  --blue-mid:       #2563eb;
+  --blue-light:     #dbeafe;
+  --teal:           #0891b2;
+  --teal-light:     #cffafe;
+  --green:          #059669;
+  --green-light:    #d1fae5;
+  --amber:          #d97706;
+  --amber-light:    #fef3c7;
+  --red:            #dc2626;
+  --red-light:      #fee2e2;
+  --violet:         #7c3aed;
+  --violet-light:   #ede9fe;
+  --slate:          #475569;
+  --slate-light:    #f1f5f9;
+
+  /* Chart palette — distinct, print-safe, colorblind-friendly */
+  --c1: #1d4ed8;   /* indigo */
+  --c2: #0891b2;   /* teal */
+  --c3: #059669;   /* green */
+  --c4: #d97706;   /* amber */
+  --c5: #dc2626;   /* red */
+  --c6: #7c3aed;   /* violet */
+  --c7: #0f766e;   /* dark teal */
+  --c8: #b45309;   /* dark amber */
+  --c9: #4338ca;   /* indigo-dark */
+  --c10: #0369a1;  /* sky */
+
+  /* ── Effects ────────────────────────────────────────────── */
+  --shadow-sm:    0 1px 3px rgba(15, 23, 42, 0.08), 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-card:  0 1px 4px rgba(15, 23, 42, 0.06), 0 4px 16px rgba(15, 23, 42, 0.04);
+  --shadow-hover: 0 4px 16px rgba(15, 23, 42, 0.10), 0 1px 4px rgba(15, 23, 42, 0.06);
+
+  --radius:    6px;
+  --radius-sm: 4px;
+  --radius-lg: 8px;
+  --sidebar-w: 240px;
+  --ease:      cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-size: 14px;
 }
 
 body {
-  margin: 0;
-  font-family:
-    Inter,
-    'Segoe UI',
-    system-ui,
-    -apple-system,
-    sans-serif;
-  background: #f8fafc;
-  color: #0f172a;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  background: var(--bg-page);
+  color: var(--text-primary);
+  line-height: 1.5;
+  min-height: 100vh;
 }
+
+#root { min-height: 100vh; }
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+::selection { background: var(--blue-light); color: var(--blue); }
