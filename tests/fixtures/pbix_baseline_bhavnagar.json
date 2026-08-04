@@ -1,0 +1,75 @@
+{
+  "agency_wide": {
+    "trip_rows_pbix": 21785,
+    "trip_unique_grain": 21327,
+    "route_day_rows": 318,
+    "ridership": 422216,
+    "revenue": 5109239.0,
+    "pax_km": 3248260.844776256,
+    "capacity_km": 12464008.200000003,
+    "LF_from_route_day": 0.26061125704139504,
+    "LF_from_unique_trips": 0.26784561064063994,
+    "ATL": 7.693362745078955,
+    "capacity_km_unique_trips": 12042094.260000002
+  },
+  "R1_2026-04-01": {
+    "n_trips": 132,
+    "n_buses": 8,
+    "ridership": 1846,
+    "revenue": 16703.0,
+    "pax_km": 6218.7445988330655,
+    "capacity_km": 39528.719999999994,
+    "LF": 0.15732218495395414,
+    "EPKM_pbix_formula": 17.747248076841345,
+    "ATL": 3.368767388316937,
+    "EPB": 2087.875,
+    "Route Length_route": 7.13
+  },
+  "BA_GJ04AX2594-1_2026-04-12": {
+    "boarding_by_stop_no": {
+      "1": 4,
+      "2": null,
+      "3": null,
+      "4": null,
+      "5": null,
+      "6": null,
+      "7": null,
+      "8": null,
+      "9": null,
+      "10": null,
+      "11": null,
+      "12": null,
+      "13": null,
+      "14": null,
+      "15": null,
+      "16": null,
+      "17": null
+    },
+    "alighting_by_stop_no": {
+      "1": null,
+      "2": null,
+      "3": null,
+      "4": null,
+      "5": null,
+      "6": null,
+      "7": null,
+      "8": null,
+      "9": null,
+      "10": null,
+      "11": null,
+      "12": null,
+      "13": 2,
+      "14": null,
+      "15": 2,
+      "16": null,
+      "17": null
+    },
+    "sum_boarding_unique": 4,
+    "sum_alighting_unique": 4
+  },
+  "notes": {
+    "trip_rows_pbix_include_duplicates": true,
+    "we_use_unique_grain_date_direction_bus_trip": true,
+    "agency_capacity_km_pbix_route_day_inflated_by_dup_trips": 12464008.200000003
+  }
+}

@@ -1,0 +1,90 @@
+﻿# Bhavnagar agency mapping
+
+agency_id: bhavnagar
+agency_name: Bhavnagar
+timezone: Asia/Kolkata
+
+# Paths relative to project root (Phase 1 will copy/upload into data/raw/bhavnagar/)
+sources:
+  etm:
+    type: excel_folder_or_file
+    path: Input files/ETM Data/ETM_Bhavnagar_Apr.xlsx
+    sheet: Bus Ticket Data
+    header_row: 1
+  supporting:
+    type: excel_workbook
+    path: Input files/Supporting data.xlsx
+    sheets:
+      stops: StopsList
+      routes: Route_Description
+      vehicles: Veh_Type
+  stop_sequence:
+    type: excel_folder
+    path: Input files/Stops sequence
+    sheet: StopsSeq
+    file_glob: "*.xlsx"
+
+# Raw → canonical column maps
+tickets:
+  Date: service_date
+  Ticket No.: ticket_id
+  Route No.: route_code
+  Route description: route_description
+  Depot: depot
+  Vehicle/ Schedule no.: vehicle_id
+  Driver ID: driver_id
+  Conductor ID: conductor_id
+  Trip No.: trip_no
+  Trip Start Time: trip_start_time
+  Trip End Time: trip_end_time
+  Ticket Issue Time: ticket_issue_time
+  No. of pass.: passengers
+  No. of child Pass.: child_passengers
+  Pass. Category: pass_category
+  Origin Stop No.: origin_stop_no
+  Destination Stop No.: destination_stop_no
+  Pass. Origin: origin_abbr
+  Pass. Destination: destination_abbr
+  Stage Km: stage_km
+  Revenue: revenue
+  Gender: gender
+
+stops:
+  Final_Abbr: stop_abbr
+  Final_Name: stop_name
+  Codes: stop_code_alt
+  Latitude: latitude
+  Longitude: longitude
+
+routes:
+  Route_Code: route_code
+  Route: route_name
+  Route_description: route_description
+  Route Length: route_length_km
+  Route Category: route_category
+
+vehicles:
+  Vehicle no./ Schedule No.: vehicle_id
+  Veh. Type: vehicle_type
+  Veh. Capacity: capacity
+
+stop_sequence:
+  Date: service_date
+  Route No.: route_code
+  Route_Description: route_description
+  Stop no.: stop_no
+  Stop id: stop_id
+  Stop Name: stop_name
+  Stop code: stop_abbr
+  Segment: segment
+
+transforms:
+  vehicle_id_strip_spaces: true
+  etm_fill_down_trip_times: true   # PBIX FillDown on Trip Start/End Time
+  total_passengers: "passengers"   # confirm in Phase 1 against PBIX Total passengers
+  pax_km: "passengers * stage_km"  # confirm against PBIX Pax.km
+  bus_trip_key: "{vehicle_id}-{trip_no}"
+  route_direction_key: "{route_code}-{route_description}"
+  stop_origin_key: "{origin_stop_no}-{origin_abbr}"
+  stop_destination_key: "{destination_stop_no}-{destination_abbr}"
+  stop_abbr_key: "{stop_no}-{stop_abbr}"
