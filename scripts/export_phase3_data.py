@@ -1,5 +1,6 @@
 ﻿from __future__ import annotations
 
+import argparse
 import json
 import math
 from pathlib import Path
@@ -31,11 +32,15 @@ def sanitize_payload(obj):
     return _sanitize_for_json(obj)
 
 
-def main() -> None:
+def main(agency_id: str = "bhavnagar") -> None:
     root = Path(__file__).resolve().parents[1]
-    canon = root / "data" / "canonical" / "bhavnagar"
+    agency_id = agency_id.strip().lower()
+    canon = root / "data" / "canonical" / agency_id
     out_dir = root / "webapp" / "public" / "data"
     out_dir.mkdir(parents=True, exist_ok=True)
+    if not canon.exists():
+        raise FileNotFoundError(f"Canonical data not found for agency: {agency_id}")
+
 
     route_day = pd.read_parquet(canon / "route_day_summary.parquet")
     trip = pd.read_parquet(canon / "trip_summary.parquet")
@@ -137,10 +142,21 @@ def main() -> None:
         ["service_date", "route_direction_key", "bus_trip_key", "stop_no"]
     )
 
+
+    agency_name = agency_id.replace("_", " ").title()
+    agencies_path = canon / "agencies.parquet"
+    if agencies_path.exists():
+        try:
+            ag = pd.read_parquet(agencies_path)
+            if len(ag) and "agency_name" in ag.columns:
+                agency_name = str(ag.iloc[0]["agency_name"])
+        except Exception:
+            pass
+
     payload = {
         "agency": {
-            "agency_id": "bhavnagar",
-            "agency_name": "Bhavnagar",
+            "agency_id": agency_id,
+            "agency_name": agency_name,
             "date_min": str(daily["service_date"].min()),
             "date_max": str(daily["service_date"].max()),
             "routes": sorted(route_day["route_code"].dropna().unique().tolist()),
@@ -157,11 +173,20 @@ def main() -> None:
     payload = sanitize_payload(payload)
 
     # Defensive: ensure we never write invalid JSON.
-    (out_dir / "bhavnagar-dashboard.json").write_text(
+    out_file = out_dir / f"{agency_id}-dashboard.json"
+    out_file.write_text(
         json.dumps(payload, ensure_ascii=False, allow_nan=False), encoding="utf-8"
     )
-    print(f"Wrote {out_dir / 'bhavnagar-dashboard.json'}")
+    # Keep legacy filename for local static UI default load
+    if agency_id == "bhavnagar":
+        (out_dir / "bhavnagar-dashboard.json").write_text(
+            json.dumps(payload, ensure_ascii=False, allow_nan=False), encoding="utf-8"
+        )
+    print(f"Wrote {out_file}")
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description="Export Phase 3 dashboard JSON")
+    parser.add_argument("--agency-id", default="bhavnagar")
+    args = parser.parse_args()
+    main(agency_id=args.agency_id)

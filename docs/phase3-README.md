@@ -1,4 +1,4 @@
-﻿# Phase 3 — React + Plotly UI
+# Phase 3 — React + Plotly UI
 
 ## Canonical location (source of truth)
 
@@ -77,3 +77,12 @@ Conductor revenue is omitted until `conductor_id` exists in source ETM.
 
 - Static JSON is the default load; uploads replace data via job API.
 - `Could not import module "etram"` → API was started from `webapp/` instead of project root.
+
+## API hardening (v0.2)
+
+- Upload filenames sanitized (basename only)
+- One pipeline job at a time (shared lock)
+- Ingest `load_ok` / BLOCK rules fail the job
+- Stale `queued`/`running` jobs marked failed on API restart
+- CORS defaults to local Vite origins (override with `CORS_ORIGINS`)
+- Export: `python scripts/export_phase3_data.py --agency-id bhavnagar`
