@@ -63,15 +63,15 @@ Vite proxies `/api` → port 8000.
 
 ## Implemented pages
 
-- Overview (daily/weekly ridership & revenue, KPIs, day-over-day deltas)
+- Overview
 - Route Performance
 - Route Trends
 - Temporal Analysis
-- Stops & Map
+- Stops & Map (light map tiles)
 - Efficiency
-- Upload Data (Excel upload + job polling)
+- Upload Data
 
-Conductor revenue is omitted until `conductor_id` exists in source ETM.
+Conductor revenue is omitted until `conductor_id` is available in ETM data.
 
 ## Notes
 

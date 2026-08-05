@@ -74,7 +74,7 @@ type Page = 'overview' | 'routes' | 'trends' | 'temporal' | 'stops' | 'efficienc
 
 const COLORS = [
   '#0b3d5c', '#0891b2', '#059669', '#d97706', '#dc2626',
-  '#7c3aed', '#0f766e', '#b45309', '#4338ca', '#0369a1',
+  '#0b3d5c', '#0f766e', '#b45309', '#0f766e', '#0369a1',
 ]
 
 const NAV: { id: Page; label: string }[] = [
@@ -241,7 +241,7 @@ function OverviewPage({ data, date }: { data: DashboardData; date: string }) {
           <div className="kpi-value">{fI(today.trips)}</div>
           <div className="kpi-sub">{fI(today.buses)} buses deployed</div>
         </div>
-        <div className="kpi-card" style={{ '--card-accent': '#7c3aed' } as React.CSSProperties}>
+        <div className="kpi-card" style={{ '--card-accent': '#0b3d5c' } as React.CSSProperties}>
           <div className="kpi-card-accent" />
           <div className="kpi-label">Period Ridership</div>
           <div className="kpi-value">{fI(totalR)}</div>
@@ -269,7 +269,7 @@ function OverviewPage({ data, date }: { data: DashboardData; date: string }) {
           <div className="kpi-value">{today.buses > 0 ? (today.trips / today.buses).toFixed(1) : '—'}</div>
           <div className="kpi-sub">Bus utilisation ratio</div>
         </div>
-        <div className="kpi-card" style={{ '--card-accent': '#4338ca' } as React.CSSProperties}>
+        <div className="kpi-card" style={{ '--card-accent': '#0f766e' } as React.CSSProperties}>
           <div className="kpi-card-accent" />
           <div className="kpi-label">Riders per Trip</div>
           <div className="kpi-value">{today.trips > 0 ? (today.ridership / today.trips).toFixed(1) : '—'}</div>
@@ -424,22 +424,26 @@ function RoutePerformancePage({ data, date, route }: { data: DashboardData; date
   return (
     <div className="page">
       <div className="kpi-grid">
-        <div className="kpi-card" style={{ '--card-accent': '#6366f1' } as React.CSSProperties}>
+        <div className="kpi-card" style={{ '--card-accent': '#0b3d5c' } as React.CSSProperties}>
+          <div className="kpi-card-accent" />
           <div className="kpi-label">Ridership</div>
           <div className="kpi-value">{fI(tot.ridership)}</div>
         </div>
-        <div className="kpi-card" style={{ '--card-accent': '#22d3ee' } as React.CSSProperties}>
+        <div className="kpi-card" style={{ '--card-accent': '#0891b2' } as React.CSSProperties}>
+          <div className="kpi-card-accent" />
           <div className="kpi-label">Revenue</div>
           <div className="kpi-value">{fM(tot.revenue)}</div>
         </div>
-        <div className="kpi-card" style={{ '--card-accent': '#10b981' } as React.CSSProperties}>
+        <div className="kpi-card" style={{ '--card-accent': '#059669' } as React.CSSProperties}>
+          <div className="kpi-card-accent" />
           <div className="kpi-label">Active Routes</div>
           <div className="kpi-value">{rows.length}</div>
         </div>
-        <div className="kpi-card" style={{ '--card-accent': '#f59e0b' } as React.CSSProperties}>
-          <div className="kpi-label">Trips / Buses</div>
+        <div className="kpi-card" style={{ '--card-accent': '#d97706' } as React.CSSProperties}>
+          <div className="kpi-card-accent" />
+          <div className="kpi-label">Service Trips</div>
           <div className="kpi-value">{fI(tot.trips)}</div>
-          <div className="kpi-sub">{fI(tot.buses)} buses</div>
+          <div className="kpi-sub">{fI(tot.buses)} buses deployed</div>
         </div>
       </div>
 
@@ -704,28 +708,33 @@ function EfficiencyPage({ data, date }: { data: DashboardData; date: string }) {
     <div className="page">
       {/* Period KPIs */}
       <div className="kpi-grid">
-        <div className="kpi-card" style={{ '--card-accent': '#f43f5e' } as React.CSSProperties}>
-          <div className="kpi-label">ATL Today</div>
+        <div className="kpi-card" style={{ '--card-accent': '#dc2626' } as React.CSSProperties}>
+          <div className="kpi-card-accent" />
+          <div className="kpi-label">Avg Trip Length (ATL)</div>
           <div className="kpi-value">{todayM ? todayM.atl.toFixed(2) : '—'} km</div>
           <div className="kpi-sub">Period avg: {avgATL.toFixed(2)} km</div>
         </div>
-        <div className="kpi-card" style={{ '--card-accent': '#14b8a6' } as React.CSSProperties}>
-          <div className="kpi-label">Fare Yield Today</div>
+        <div className="kpi-card" style={{ '--card-accent': '#0f766e' } as React.CSSProperties}>
+          <div className="kpi-card-accent" />
+          <div className="kpi-label">Fare Yield</div>
           <div className="kpi-value">₹{todayM ? todayM.fareYield.toFixed(2) : '—'}</div>
           <div className="kpi-sub">Period avg: ₹{avgFY.toFixed(2)}</div>
         </div>
-        <div className="kpi-card" style={{ '--card-accent': '#f97316' } as React.CSSProperties}>
-          <div className="kpi-label">Trips/Bus Today</div>
+        <div className="kpi-card" style={{ '--card-accent': '#b45309' } as React.CSSProperties}>
+          <div className="kpi-card-accent" />
+          <div className="kpi-label">Trips per Bus</div>
           <div className="kpi-value">{todayM ? todayM.tripsPerBus.toFixed(1) : '—'}</div>
           <div className="kpi-sub">Period avg: {avgTPB.toFixed(1)}</div>
         </div>
-        <div className="kpi-card" style={{ '--card-accent': '#3b82f6' } as React.CSSProperties}>
-          <div className="kpi-label">Rev/Trip Today</div>
+        <div className="kpi-card" style={{ '--card-accent': '#0f766e' } as React.CSSProperties}>
+          <div className="kpi-card-accent" />
+          <div className="kpi-label">Revenue per Trip</div>
           <div className="kpi-value">{today && today.trips > 0 ? fM(today.revenue / today.trips) : '—'}</div>
           <div className="kpi-sub">Revenue per operated trip</div>
         </div>
-        <div className="kpi-card" style={{ '--card-accent': '#8b5cf6' } as React.CSSProperties}>
-          <div className="kpi-label">Rev/Bus Today</div>
+        <div className="kpi-card" style={{ '--card-accent': '#0b3d5c' } as React.CSSProperties}>
+          <div className="kpi-card-accent" />
+          <div className="kpi-label">Revenue per Bus</div>
           <div className="kpi-value">{today && today.buses > 0 ? fM(today.revenue / today.buses) : '—'}</div>
           <div className="kpi-sub">Revenue per deployed bus</div>
         </div>
@@ -905,30 +914,37 @@ function TemporalPage({ data, date, route }: { data: DashboardData; date: string
   return (
     <div className="page">
       <div className="kpi-grid">
-        <div className="kpi-card" style={{ '--card-accent': '#6366f1' } as React.CSSProperties}>
+        <div className="kpi-card" style={{ '--card-accent': '#0b3d5c' } as React.CSSProperties}>
+          <div className="kpi-card-accent" />
           <div className="kpi-label">Day Ridership</div>
           <div className="kpi-value">{fI(totR)}</div>
         </div>
-        <div className="kpi-card" style={{ '--card-accent': '#22d3ee' } as React.CSSProperties}>
+        <div className="kpi-card" style={{ '--card-accent': '#0891b2' } as React.CSSProperties}>
+          <div className="kpi-card-accent" />
           <div className="kpi-label">Day Revenue</div>
           <div className="kpi-value">{fM(totRev)}</div>
         </div>
-        <div className="kpi-card" style={{ '--card-accent': '#f59e0b' } as React.CSSProperties}>
+        <div className="kpi-card" style={{ '--card-accent': '#d97706' } as React.CSSProperties}>
+          <div className="kpi-card-accent" />
           <div className="kpi-label">Peak Hour</div>
           <div className="kpi-value">{peak ? peak.label : '—'}</div>
           {peak && <div className="kpi-sub">{fI(peak.ridership)} passengers</div>}
         </div>
-        <div className="kpi-card" style={{ '--card-accent': '#10b981' } as React.CSSProperties}>
-          <div className="kpi-label">Active Hours</div>
+        <div className="kpi-card" style={{ '--card-accent': '#059669' } as React.CSSProperties}>
+          <div className="kpi-card-accent" />
+          <div className="kpi-label">Service Hours</div>
           <div className="kpi-value">{rows.length}</div>
+          <div className="kpi-sub">Active operating hours</div>
         </div>
-        <div className="kpi-card" style={{ '--card-accent': '#f43f5e' } as React.CSSProperties}>
+        <div className="kpi-card" style={{ '--card-accent': '#dc2626' } as React.CSSProperties}>
+          <div className="kpi-card-accent" />
           <div className="kpi-label">Est. Headway</div>
           <div className="kpi-value">{headwayMins != null ? `${headwayMins} min` : '—'}</div>
-          <div className="kpi-sub">Avg time between trips</div>
+          <div className="kpi-sub">Avg interval between trips</div>
         </div>
-        <div className="kpi-card" style={{ '--card-accent': '#8b5cf6' } as React.CSSProperties}>
-          <div className="kpi-label">Trips / Bus</div>
+        <div className="kpi-card" style={{ '--card-accent': '#0b3d5c' } as React.CSSProperties}>
+          <div className="kpi-card-accent" />
+          <div className="kpi-label">Trips per Bus</div>
           <div className="kpi-value">{routeTotals.tripsPerBus != null ? routeTotals.tripsPerBus.toFixed(1) : '—'}</div>
           <div className="kpi-sub">{fI(routeTotals.buses)} buses deployed</div>
         </div>
@@ -1051,19 +1067,24 @@ function StopsMapPage({ data, date, routeDirection }: { data: DashboardData; dat
   return (
     <div className="page">
       <div className="kpi-grid">
-        <div className="kpi-card" style={{ '--card-accent': '#10b981' } as React.CSSProperties}>
+        <div className="kpi-card" style={{ '--card-accent': '#059669' } as React.CSSProperties}>
+          <div className="kpi-card-accent" />
           <div className="kpi-label">Total Boardings</div>
           <div className="kpi-value">{fI(totalB)}</div>
         </div>
-        <div className="kpi-card" style={{ '--card-accent': '#f43f5e' } as React.CSSProperties}>
+        <div className="kpi-card" style={{ '--card-accent': '#dc2626' } as React.CSSProperties}>
+          <div className="kpi-card-accent" />
           <div className="kpi-label">Total Alightings</div>
           <div className="kpi-value">{fI(totalA)}</div>
         </div>
-        <div className="kpi-card" style={{ '--card-accent': '#f59e0b' } as React.CSSProperties}>
-          <div className="kpi-label">Peak Load</div>
+        <div className="kpi-card" style={{ '--card-accent': '#d97706' } as React.CSSProperties}>
+          <div className="kpi-card-accent" />
+          <div className="kpi-label">Peak Passenger Load</div>
           <div className="kpi-value">{fI(maxLoad)}</div>
+          <div className="kpi-sub">Max load across all stops</div>
         </div>
-        <div className="kpi-card" style={{ '--card-accent': '#6366f1' } as React.CSSProperties}>
+        <div className="kpi-card" style={{ '--card-accent': '#0b3d5c' } as React.CSSProperties}>
+          <div className="kpi-card-accent" />
           <div className="kpi-label">Active Stops</div>
           <div className="kpi-value">{stops.length}</div>
         </div>
@@ -1099,7 +1120,7 @@ function StopsMapPage({ data, date, routeDirection }: { data: DashboardData; dat
               height: 480,
               margin: { l: 0, r: 0, t: 0, b: 0 },
               paper_bgcolor: 'transparent',
-              mapbox: { style: 'carto-darkmatter', center, zoom: 11 },
+              mapbox: { style: 'carto-positron', center, zoom: 11 },
             }}
             style={{ width: '100%', borderRadius: '12px', overflow: 'hidden' }}
             config={pCfg}
@@ -1616,13 +1637,13 @@ function App() {
 
         {/* Pages */}
         <div className="page-content">
-          {page === 'overview'  && <OverviewPage data={data} date={date} />}
-          {page === 'routes'    && <RoutePerformancePage data={data} date={date} route={route} />}
-          {page === 'trends'    && <RouteTrendsPage data={data} route={route} />}
-          {page === 'temporal'  && <TemporalPage data={data} date={date} route={route} />}
-          {page === 'stops'     && <StopsMapPage data={data} date={date} routeDirection={routeDirection} />}
+          {page === 'overview'   && <OverviewPage data={data} date={date} />}
+          {page === 'routes'     && <RoutePerformancePage data={data} date={date} route={route} />}
+          {page === 'trends'     && <RouteTrendsPage data={data} route={route} />}
+          {page === 'temporal'   && <TemporalPage data={data} date={date} route={route} />}
+          {page === 'stops'      && <StopsMapPage data={data} date={date} routeDirection={routeDirection} />}
           {page === 'efficiency' && <EfficiencyPage data={data} date={date} />}
-          {page === 'upload'    && <UploadPage onDataLoaded={handleDataUpdate} />}
+                    {page === 'upload'     && <UploadPage onDataLoaded={handleDataUpdate} />}
         </div>
       </main>
     </div>
