@@ -1,4 +1,4 @@
-# Phase 3 — React + Plotly UI
+﻿# Phase 3 — React + Plotly UI
 
 ## Canonical location (source of truth)
 
@@ -63,14 +63,15 @@ Vite proxies `/api` → port 8000.
 
 ## Implemented pages
 
-- Overview (daily/weekly ridership & revenue, KPIs, deltas)
+- Overview (daily/weekly ridership & revenue, KPIs, day-over-day deltas)
 - Route Performance
 - Route Trends
 - Temporal Analysis
 - Stops & Map
-- Efficiency Metrics
-- Conductor Revenue (feature-gated; proxy until conductor_id exists)
-- Data Management (Excel upload + job polling)
+- Efficiency
+- Upload Data (Excel upload + job polling)
+
+Conductor revenue is omitted until `conductor_id` exists in source ETM.
 
 ## Notes
 

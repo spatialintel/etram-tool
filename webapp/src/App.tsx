@@ -66,26 +66,25 @@ interface DashboardData {
   }[]
 }
 
-type Page = 'overview' | 'routes' | 'trends' | 'temporal' | 'stops' | 'efficiency' | 'conductor' | 'upload'
+type Page = 'overview' | 'routes' | 'trends' | 'temporal' | 'stops' | 'efficiency' | 'upload'
 
 /* ═══════════════════════════════════════════════════════════════
    Constants & Helpers
    ═══════════════════════════════════════════════════════════════ */
 
 const COLORS = [
-  '#1d4ed8', '#0891b2', '#059669', '#d97706', '#dc2626',
+  '#0b3d5c', '#0891b2', '#059669', '#d97706', '#dc2626',
   '#7c3aed', '#0f766e', '#b45309', '#4338ca', '#0369a1',
 ]
 
-const NAV: { id: Page; label: string; gate?: string }[] = [
+const NAV: { id: Page; label: string }[] = [
   { id: 'overview',   label: 'Overview' },
   { id: 'routes',     label: 'Route Performance' },
   { id: 'trends',     label: 'Route Trends' },
   { id: 'temporal',   label: 'Temporal Analysis' },
   { id: 'stops',      label: 'Stops & Map' },
-  { id: 'efficiency', label: 'Efficiency Metrics' },
-  { id: 'conductor',  label: 'Conductor Revenue', gate: 'conductor_revenue' },
-  { id: 'upload',     label: 'Data Management' },
+  { id: 'efficiency', label: 'Efficiency' },
+  { id: 'upload',     label: 'Upload Data' },
 ]
 
 const lightAx: Record<string, unknown> = {
@@ -100,12 +99,12 @@ function pLayout(overrides: Record<string, any> = {}): Record<string, any> {
   return {
     paper_bgcolor: 'transparent',
     plot_bgcolor:  'transparent',
-    font: { color: '#374151', family: 'Inter, sans-serif', size: 12 },
+    font: { color: '#374151', family: 'Source Sans 3, sans-serif', size: 12 },
     xaxis: { ...lightAx, ...(overrides.xaxis || {}) },
     yaxis: { ...lightAx, ...(overrides.yaxis || {}) },
     margin: { l: 56, r: 32, t: 20, b: 44 },
     legend: { font: { color: '#6b7280', size: 11 }, bgcolor: 'transparent', orientation: 'h', y: -0.18 },
-    hoverlabel: { bgcolor: '#1a2744', bordercolor: '#273557', font: { color: '#f1f5f9', family: 'Inter', size: 12 } },
+    hoverlabel: { bgcolor: '#1a2744', bordercolor: '#273557', font: { color: '#f1f5f9', family: 'Source Sans 3', size: 12 } },
     ...overrides,
   }
 }
@@ -176,7 +175,7 @@ function OverviewPage({ data, date }: { data: DashboardData; date: string }) {
     <div className="page">
       {/* KPI Cards — Row 1: operational */}
       <div className="kpi-grid">
-        <div className="kpi-card" style={{ '--card-accent': '#1d4ed8' } as React.CSSProperties}>
+        <div className="kpi-card" style={{ '--card-accent': '#0b3d5c' } as React.CSSProperties}>
           <div className="kpi-card-accent" />
           <div className="kpi-label">Daily Ridership</div>
           <div className="kpi-value">{fI(today.ridership)}</div>
@@ -264,7 +263,7 @@ function OverviewPage({ data, date }: { data: DashboardData; date: string }) {
               y: weeklyData.map(w => w.ridership),
               type: 'bar' as const,
               name: 'Ridership',
-              marker: { color: '#1d4ed8', opacity: 0.85 },
+              marker: { color: '#0b3d5c', opacity: 0.85 },
             },
             {
               x: weeklyData.map(w => w.week),
@@ -282,7 +281,7 @@ function OverviewPage({ data, date }: { data: DashboardData; date: string }) {
               y: data.daily.map(d => d.ridership),
               type: 'bar' as const,
               name: 'Ridership',
-              marker: { color: '#1d4ed8', opacity: 0.8 },
+              marker: { color: '#0b3d5c', opacity: 0.8 },
             },
             {
               x: data.daily.map(d => d.service_date),
@@ -351,17 +350,6 @@ function OverviewPage({ data, date }: { data: DashboardData; date: string }) {
         </div>
       </div>
 
-      {/* Feature Gates */}
-      <div className="chart-panel">
-        <div className="chart-header"><div className="chart-title">Data Quality — Feature Gates</div></div>
-        <div className="gate-list">
-          {Object.entries(data.feature_gates).map(([k, v]) => (
-            <span key={k} className={`gate-badge ${v ? 'on' : 'off'}`}>
-              {v ? '✓' : '✗'} {k.replace(/_/g, ' ')}
-            </span>
-          ))}
-        </div>
-      </div>
     </div>
   )
 }
@@ -790,138 +778,12 @@ function EfficiencyPage({ data, date }: { data: DashboardData; date: string }) {
             height: 420,
             margin: { l: 60, r: 60, t: 40, b: 40 },
             legend: { font: { color: '#4b5563', size: 11 }, bgcolor: 'transparent', orientation: 'h', y: -0.12 },
-            hoverlabel: { bgcolor: '#1e2240', bordercolor: '#2d3350', font: { color: '#eef2ff', family: 'Inter', size: 12 } },
+            hoverlabel: { bgcolor: '#1e2240', bordercolor: '#2d3350', font: { color: '#eef2ff', family: 'Source Sans 3', size: 12 } },
           }}
           style={{ width: '100%' }}
           config={pCfg}
           useResizeHandler
         />
-      </div>
-    </div>
-  )
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   Conductor Revenue Page (gated: conductor_revenue)
-   ═══════════════════════════════════════════════════════════════ */
-
-function ConductorPage({ data, date }: { data: DashboardData; date: string }) {
-  // Approximate conductor analysis from route_trend: group routes by date range
-  // (Actual conductor_id not in JSON — show route-as-conductor proxy with note)
-  const dateRows = useMemo(() =>
-    data.route_trend
-      .filter(r => r.service_date === date)
-      .sort((a, b) => b.revenue - a.revenue),
-    [data, date],
-  )
-
-  const periodRows = useMemo(() => {
-    const agg = new Map<string, { revenue: number; ridership: number; trips: number; days: Set<string> }>()
-    for (const r of data.route_trend) {
-      const e = agg.get(r.route_code) || { revenue: 0, ridership: 0, trips: 0, days: new Set() }
-      e.revenue += r.revenue; e.ridership += r.ridership; e.trips += r.n_trips
-      e.days.add(r.service_date)
-      agg.set(r.route_code, e)
-    }
-    return [...agg.entries()]
-      .map(([rc, v]) => ({ route: rc, ...v, daysOp: v.days.size, revPerDay: v.revenue / v.days.size }))
-      .sort((a, b) => b.revenue - a.revenue)
-  }, [data])
-
-  const totRev = dateRows.reduce((s, r) => s + r.revenue, 0)
-  const totTrips = dateRows.reduce((s, r) => s + r.n_trips, 0)
-
-  return (
-    <div className="page">
-      <div className="conductor-note">
-        ℹ️ <strong>Note:</strong> Conductor-level breakdown requires conductor_id in the ETM data.
-        Showing route-level revenue as a proxy. When individual conductor data is available, this page will show per-conductor earnings.
-      </div>
-
-      <div className="kpi-grid">
-        <div className="kpi-card" style={{ '--card-accent': '#6366f1' } as React.CSSProperties}>
-          <div className="kpi-label">Day Revenue</div>
-          <div className="kpi-value">{fM(totRev)}</div>
-          <div className="kpi-sub">{date}</div>
-        </div>
-        <div className="kpi-card" style={{ '--card-accent': '#22d3ee' } as React.CSSProperties}>
-          <div className="kpi-label">Routes Operating</div>
-          <div className="kpi-value">{dateRows.length}</div>
-        </div>
-        <div className="kpi-card" style={{ '--card-accent': '#10b981' } as React.CSSProperties}>
-          <div className="kpi-label">Total Trips</div>
-          <div className="kpi-value">{fI(totTrips)}</div>
-        </div>
-        <div className="kpi-card" style={{ '--card-accent': '#f59e0b' } as React.CSSProperties}>
-          <div className="kpi-label">Rev / Trip</div>
-          <div className="kpi-value">{totTrips > 0 ? fM(totRev / totTrips) : '—'}</div>
-        </div>
-      </div>
-
-      {/* Revenue by Route — Day */}
-      <div className="chart-panel">
-        <div className="chart-header">
-          <div>
-            <div className="chart-title">Revenue by Route — {date}</div>
-            <div className="chart-subtitle">Sorted descending by revenue</div>
-          </div>
-        </div>
-        <Plot
-          data={[{
-            x: dateRows.map(r => r.route_code),
-            y: dateRows.map(r => r.revenue),
-            type: 'bar' as const,
-            name: 'Revenue',
-            marker: { color: dateRows.map((_, i) => COLORS[i % COLORS.length]), opacity: 0.85 },
-            text: dateRows.map(r => `₹${fI(r.revenue)}`),
-            textposition: 'outside' as const,
-            textfont: { color: '#4b5563', size: 10 },
-          }]}
-          layout={pLayout({
-            height: 360,
-            xaxis: { ...lightAx, title: { text: 'Route', font: { color: '#6b7280', size: 11 } } },
-            yaxis: { ...lightAx, title: { text: 'Revenue (₹)', font: { color: '#6b7280', size: 11 } } },
-            margin: { l: 56, r: 32, t: 36, b: 48 },
-          })}
-          style={{ width: '100%' }}
-          config={pCfg}
-          useResizeHandler
-        />
-      </div>
-
-      {/* Period revenue table */}
-      <div className="chart-panel">
-        <div className="chart-header"><div className="chart-title">Full Period Revenue Summary — All Routes</div></div>
-        <div className="data-table-wrap">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Route</th>
-                <th>Days Active</th>
-                <th>Total Revenue</th>
-                <th>Total Ridership</th>
-                <th>Total Trips</th>
-                <th>Rev/Day</th>
-                <th>Rev/Trip</th>
-                <th>Fare Yield</th>
-              </tr>
-            </thead>
-            <tbody>
-              {periodRows.map(r => (
-                <tr key={r.route}>
-                  <td><strong>{r.route}</strong></td>
-                  <td className="num">{r.daysOp}</td>
-                  <td className="num">{fM(r.revenue)}</td>
-                  <td className="num">{fI(r.ridership)}</td>
-                  <td className="num">{fI(r.trips)}</td>
-                  <td className="num">{fM(r.revPerDay)}</td>
-                  <td className="num">{r.trips > 0 ? fM(r.revenue / r.trips) : '—'}</td>
-                  <td className="num">{r.ridership > 0 ? '₹' + (r.revenue / r.ridership).toFixed(2) : '—'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
       </div>
     </div>
   )
@@ -1376,7 +1238,7 @@ function UploadPage({ onDataLoaded }: { onDataLoaded: (d: DashboardData) => void
   return (
     <div className="page">
       <div className="chart-panel">
-        <div className="chart-header"><div className="chart-title">Upload New Excel Dataset</div></div>
+        <div className="chart-header"><div className="chart-title">Upload dataset</div><div className="chart-subtitle">Provide ETM tickets, supporting tables, and daily stop-sequence files</div></div>
         <div className="upload-grid">
           {/* ── Bulk drop zone ── */}
           <div
@@ -1385,7 +1247,7 @@ function UploadPage({ onDataLoaded }: { onDataLoaded: (d: DashboardData) => void
             onDragLeave={() => setDrag(false)}
             onDrop={e => { e.preventDefault(); setDrag(false); handleBulkDrop(e.dataTransfer.files) }}
           >
-            <div className="dropzone-label">📂 Drop all Excel files here</div>
+            <div className="dropzone-label">Drop all Excel files here</div>
             <div className="dropzone-hint">
               Auto-classified by name: <code>ETM_*</code>, <code>Supporting*</code>, <code>StopsSeq*</code> / route files like <code>1-2.xlsx</code>
             </div>
@@ -1416,7 +1278,7 @@ function UploadPage({ onDataLoaded }: { onDataLoaded: (d: DashboardData) => void
                 onDrop={e => { e.preventDefault(); handleSlotDrop('etm', e.dataTransfer.files) }}
               >
                 <div className="slot-zone-header">
-                  <span className="slot-label">📋 ETM File</span>
+                  <span className="slot-label">ETM file</span>
                   {etm && <button className="link-btn" onClick={() => setEtm(null)}>Remove</button>}
                 </div>
                 {etm
@@ -1433,7 +1295,7 @@ function UploadPage({ onDataLoaded }: { onDataLoaded: (d: DashboardData) => void
                 onDrop={e => { e.preventDefault(); handleSlotDrop('supporting', e.dataTransfer.files) }}
               >
                 <div className="slot-zone-header">
-                  <span className="slot-label">📄 Supporting File</span>
+                  <span className="slot-label">Supporting file</span>
                   {supporting && <button className="link-btn" onClick={() => setSupporting(null)}>Remove</button>}
                 </div>
                 {supporting
@@ -1450,7 +1312,7 @@ function UploadPage({ onDataLoaded }: { onDataLoaded: (d: DashboardData) => void
                 onDrop={e => { e.preventDefault(); handleSlotDrop('stops', e.dataTransfer.files) }}
               >
                 <div className="slot-zone-header">
-                  <span className="slot-label">🛑 Stop Sequence Files</span>
+                  <span className="slot-label">Stop sequence files</span>
                   {stopsFiles.length > 0 && <button className="link-btn" onClick={() => setStopsFiles([])}>Clear</button>}
                 </div>
                 {stopsFiles.length > 0
@@ -1465,7 +1327,7 @@ function UploadPage({ onDataLoaded }: { onDataLoaded: (d: DashboardData) => void
           {/* Actions */}
           <div className="upload-actions">
             <button className="btn-primary" onClick={submit} disabled={status === 'running' || status === 'queued'}>
-              {status === 'running' || status === 'queued' ? 'Processing...' : 'Start Processing'}
+              {status === 'running' || status === 'queued' ? 'Processing…' : 'Process files'}
             </button>
             <div className="job-status">
               <span className={`status-dot ${status}`} />
@@ -1482,7 +1344,7 @@ function UploadPage({ onDataLoaded }: { onDataLoaded: (d: DashboardData) => void
 
           {logs.length > 0 && (
             <div>
-              <div className="section-title">Job Log</div>
+              <div className="section-title">Processing log</div>
               <div className="job-log">{logs.map((l, i) => <div key={i}>{l}</div>)}</div>
             </div>
           )}
@@ -1492,7 +1354,7 @@ function UploadPage({ onDataLoaded }: { onDataLoaded: (d: DashboardData) => void
       {/* Recent Jobs */}
       {jobs.length > 0 && (
         <div className="chart-panel">
-          <div className="chart-header"><div className="chart-title">Recent Jobs</div></div>
+          <div className="chart-header"><div className="chart-title">Recent uploads</div></div>
           <table className="recent-table">
             <thead>
               <tr><th>Job</th><th>Status</th><th>Created</th><th></th></tr>
@@ -1551,8 +1413,8 @@ function App() {
   }
 
   // Loading / error
-  if (error && !data) return <div className="loading-screen"><p>Error: {error}</p></div>
-  if (!data) return <div className="loading-screen"><div className="spinner" /><p>Loading dashboard data…</p></div>
+  if (error && !data) return <div className="loading-screen"><p>Unable to load the dashboard.</p><p className="loading-detail">{error}</p></div>
+  if (!data) return <div className="loading-screen"><div className="spinner" aria-hidden="true" /><p>Loading dashboard…</p></div>
 
   return (
     <div className="app-shell">
@@ -1571,32 +1433,28 @@ function App() {
               </svg>
             </div>
             <div>
-              <h1>E-TRAM</h1>
+              <h1>Transit Performance</h1>
             </div>
           </div>
-          <p>{data.agency.agency_name} &nbsp;&middot;&nbsp; Transit Analytics</p>
+          <p>{data.agency.agency_name}</p>
           <div className="sidebar-meta">
-            Data period: {data.agency.date_min} to {data.agency.date_max}
+            {data.agency.date_min} — {data.agency.date_max}
           </div>
         </div>
-        <nav className="sidebar-nav">
-          {NAV.map(item => {
-            const gated = item.gate ? !data.feature_gates[item.gate] : false
-            return (
+        <nav className="sidebar-nav" aria-label="Primary">
+          {NAV.map(item => (
               <button
                 key={item.id}
-                className={`nav-item ${page === item.id ? 'active' : ''} ${gated ? 'gated' : ''}`}
-                onClick={() => !gated && setPage(item.id)}
-                title={gated ? `Requires ${item.gate} feature gate` : item.label}
+                type="button"
+                className={`nav-item ${page === item.id ? 'active' : ''}`}
+                onClick={() => setPage(item.id)}
               >
                 <span className="nav-label">{item.label}</span>
-                {gated && <span className="nav-badge">GATED</span>}
               </button>
-            )
-          })}
+          ))}
         </nav>
         <div className="sidebar-footer">
-          E-TRAM Bhavnagar &nbsp;&middot;&nbsp; v7
+          CRDF · Transit analytics
         </div>
       </aside>
 
@@ -1612,7 +1470,7 @@ function App() {
               </select>
             </div>
 
-            {(page === 'routes' || page === 'trends' || page === 'temporal' || page === 'efficiency' || page === 'conductor') && (
+            {(page === 'routes' || page === 'trends' || page === 'temporal' || page === 'efficiency') && (
               <div className="filter-group">
                 <span className="filter-label">Route</span>
                 <select value={route} onChange={e => setRoute(e.target.value)}>
@@ -1642,7 +1500,6 @@ function App() {
           {page === 'temporal'  && <TemporalPage data={data} date={date} route={route} />}
           {page === 'stops'     && <StopsMapPage data={data} date={date} routeDirection={routeDirection} />}
           {page === 'efficiency' && <EfficiencyPage data={data} date={date} />}
-          {page === 'conductor' && <ConductorPage data={data} date={date} />}
           {page === 'upload'    && <UploadPage onDataLoaded={handleDataUpdate} />}
         </div>
       </main>
