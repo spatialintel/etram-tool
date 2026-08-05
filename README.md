@@ -39,3 +39,17 @@ npm run dev
 ```
 
 Do not keep a second editable copy at `C:\temp\webapp`.
+
+## Railway deployment
+
+Deploy the repository root. `railway.json` selects the root `Dockerfile`, which
+builds the React dashboard and serves it from the FastAPI service. Railway must
+not use Python/Railpack auto-detection for this mixed Python/Node repository.
+
+- Health check: `/api/health`
+- Public dashboard: `/`
+- Upload API: `/api/jobs`
+- Runtime port: supplied automatically through `PORT`
+
+The container filesystem is ephemeral. Attach a Railway volume at `/app/data`
+if uploaded jobs and generated results must survive redeployments.

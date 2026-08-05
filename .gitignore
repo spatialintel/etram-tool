@@ -46,3 +46,5 @@ Thumbs.db
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+_temp*/
+webapp/fix_ui_utf8.py

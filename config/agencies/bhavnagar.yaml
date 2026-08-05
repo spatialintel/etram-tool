@@ -7,7 +7,7 @@ timezone: Asia/Kolkata
 sources:
   etm:
     type: excel_folder_or_file
-    path: Input files/ETM Data/ETM_Bhavnagar_Apr.xlsx
+    path: Input files/ETM Data/ETM_Bhavnagar_Apr - Edited.xlsx
     sheet: Bus Ticket Data
     header_row: 1
   supporting:

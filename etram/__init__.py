@@ -19,6 +19,7 @@ import yaml
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from etram.ingest.load import run_ingest
 from etram.metrics.build import run_metrics
@@ -364,3 +365,10 @@ def get_job_result(job_id: str) -> JSONResponse:
 
 
 _load_jobs()
+
+# Railway builds the React app into webapp/dist and runs this API as the single
+# public service. Mounting after the API routes preserves /api/* while serving
+# the dashboard and its assets from the same origin.
+_webapp_dist = _project_root() / "webapp" / "dist"
+if _webapp_dist.is_dir():
+    app.mount("/", StaticFiles(directory=_webapp_dist, html=True), name="webapp")
