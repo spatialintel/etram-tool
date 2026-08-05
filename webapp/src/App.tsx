@@ -96,20 +96,62 @@ const lightAx: Record<string, unknown> = {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function pLayout(overrides: Record<string, any> = {}): Record<string, any> {
+  const { xaxis, yaxis, yaxis2, margin, legend, ...rest } = overrides
   return {
     paper_bgcolor: 'transparent',
-    plot_bgcolor:  'transparent',
+    plot_bgcolor: 'transparent',
     font: { color: '#374151', family: 'Source Sans 3, sans-serif', size: 12 },
-    xaxis: { ...lightAx, ...(overrides.xaxis || {}) },
-    yaxis: { ...lightAx, ...(overrides.yaxis || {}) },
-    margin: { l: 56, r: 32, t: 20, b: 44 },
-    legend: { font: { color: '#6b7280', size: 11 }, bgcolor: 'transparent', orientation: 'h', y: -0.18 },
-    hoverlabel: { bgcolor: '#1a2744', bordercolor: '#273557', font: { color: '#f1f5f9', family: 'Source Sans 3', size: 12 } },
-    ...overrides,
+    autosize: true,
+    xaxis: {
+      ...lightAx,
+      automargin: true,
+      title: { standoff: 8 },
+      ...(xaxis || {}),
+    },
+    yaxis: {
+      ...lightAx,
+      automargin: true,
+      title: { standoff: 8 },
+      ...(yaxis || {}),
+    },
+    ...(yaxis2
+      ? {
+          yaxis2: {
+            ...lightAx,
+            automargin: true,
+            title: { standoff: 8 },
+            overlaying: 'y',
+            side: 'right',
+            ...yaxis2,
+          },
+        }
+      : {}),
+    margin: { l: 64, r: 48, t: 36, b: 48, ...(margin || {}) },
+    legend: {
+      font: { color: '#6b7280', size: 11 },
+      bgcolor: 'rgba(255,255,255,0.92)',
+      borderwidth: 0,
+      orientation: 'h',
+      yanchor: 'bottom',
+      y: 1.02,
+      x: 0,
+      xanchor: 'left',
+      ...(legend || {}),
+    },
+    hoverlabel: {
+      bgcolor: '#1a2744',
+      bordercolor: '#273557',
+      font: { color: '#f1f5f9', family: 'Source Sans 3', size: 12 },
+    },
+    ...rest,
   }
 }
 
-const pCfg: Record<string, unknown> = { displayModeBar: false, responsive: true }
+const pCfg: Record<string, unknown> = {
+  displayModeBar: false,
+  responsive: true,
+  staticPlot: false,
+}
 
 const fI = (n: number) => Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 }).format(n)
 const fM = (n: number) => '₹' + fI(Math.round(n))
@@ -256,7 +298,8 @@ function OverviewPage({ data, date }: { data: DashboardData; date: string }) {
             {weeklyView ? 'Daily View' : 'Weekly View'}
           </button>
         </div>
-        <Plot
+        <div className="chart-plot" style={{ height: 380 }}>
+            <Plot
           data={weeklyView ? [
             {
               x: weeklyData.map(w => w.week),
@@ -303,17 +346,19 @@ function OverviewPage({ data, date }: { data: DashboardData; date: string }) {
               annotations: [{ x: date, y: 1.03, yref: 'paper', text: '▾ Selected', showarrow: false, font: { color: '#f59e0b', size: 10 } }],
             }),
           })}
-          style={{ width: '100%' }}
+          style={{ width: '100%', height: '100%' }}
           config={pCfg}
           useResizeHandler
         />
+            </div>
       </div>
 
       {/* Bottom row: LF Trend + Trips/Buses */}
       <div className="charts-row">
         <div className="chart-panel">
           <div className="chart-header"><div className="chart-title">Load Factor Trend</div></div>
-          <Plot
+          <div className="chart-plot" style={{ height: 250 }}>
+            <Plot
             data={[{
               x: data.daily.map(d => d.service_date),
               y: data.daily.map(d => (d.lf || 0) * 100),
@@ -329,24 +374,27 @@ function OverviewPage({ data, date }: { data: DashboardData; date: string }) {
               height: 250,
               yaxis: { ...lightAx, title: { text: 'Load Factor %', font: { color: '#6b7280', size: 11 } } },
             })}
-            style={{ width: '100%' }}
+            style={{ width: '100%', height: '100%' }}
             config={pCfg}
             useResizeHandler
           />
+            </div>
         </div>
 
         <div className="chart-panel">
           <div className="chart-header"><div className="chart-title">Trips & Buses</div></div>
-          <Plot
+          <div className="chart-plot" style={{ height: 250 }}>
+            <Plot
             data={[
               { x: data.daily.map(d => d.service_date), y: data.daily.map(d => d.trips), type: 'bar' as const, name: 'Trips', marker: { color: '#f59e0b', opacity: 0.7 } },
               { x: data.daily.map(d => d.service_date), y: data.daily.map(d => d.buses), type: 'scatter' as const, mode: 'lines+markers' as const, name: 'Buses', line: { color: '#f43f5e', width: 2 }, marker: { size: 4, color: '#f43f5e' } },
             ]}
             layout={pLayout({ height: 250, yaxis: { ...lightAx, title: { text: 'Count', font: { color: '#6b7280', size: 11 } } } })}
-            style={{ width: '100%' }}
+            style={{ width: '100%', height: '100%' }}
             config={pCfg}
             useResizeHandler
           />
+            </div>
         </div>
       </div>
 
@@ -403,7 +451,8 @@ function RoutePerformancePage({ data, date, route }: { data: DashboardData; date
             <div className="chart-subtitle">{date}</div>
           </div>
         </div>
-        <Plot
+        <div className="chart-plot" style={{ height: 400 }}>
+            <Plot
           data={[
             {
               x: rows.map(r => r.route_code),
@@ -429,16 +478,18 @@ function RoutePerformancePage({ data, date, route }: { data: DashboardData; date
             yaxis: { ...lightAx, title: { text: 'Ridership', font: { color: '#6b7280', size: 11 } } },
             yaxis2: { ...lightAx, title: { text: 'LF %', font: { color: '#6b7280', size: 11 } }, overlaying: 'y', side: 'right' },
           })}
-          style={{ width: '100%' }}
+          style={{ width: '100%', height: '100%' }}
           config={pCfg}
           useResizeHandler
         />
+            </div>
       </div>
 
       {/* Revenue chart */}
       <div className="chart-panel">
         <div className="chart-header"><div className="chart-title">Revenue by Route</div></div>
-        <Plot
+        <div className="chart-plot" style={{ height: 300 }}>
+            <Plot
           data={[{
             x: rows.map(r => r.route_code),
             y: rows.map(r => r.revenue),
@@ -451,10 +502,11 @@ function RoutePerformancePage({ data, date, route }: { data: DashboardData; date
             xaxis: { ...lightAx, tickangle: -45 },
             yaxis: { ...lightAx, title: { text: 'Revenue (₹)', font: { color: '#6b7280', size: 11 } } },
           })}
-          style={{ width: '100%' }}
+          style={{ width: '100%', height: '100%' }}
           config={pCfg}
           useResizeHandler
         />
+            </div>
       </div>
 
       {/* Data table — expanded with efficiency metrics */}
@@ -510,7 +562,7 @@ function RouteTrendsPage({ data, route }: { data: DashboardData; route: string }
     if (route !== 'ALL') return [route]
     const totals = new Map<string, number>()
     for (const r of data.route_trend) totals.set(r.route_code, (totals.get(r.route_code) || 0) + r.ridership)
-    return [...totals.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6).map(([c]) => c)
+    return [...totals.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4).map(([c]) => c)
   }, [data, route])
 
   const traceFor = (rc: string, i: number, field: 'ridership' | 'revenue' | 'load_factor_route', scale = 1) => {
@@ -532,35 +584,52 @@ function RouteTrendsPage({ data, route }: { data: DashboardData; route: string }
         <div className="chart-header">
           <div>
             <div className="chart-title">Ridership Over Time</div>
-            <div className="chart-subtitle">{route === 'ALL' ? 'Top 6 routes by total ridership' : `Route ${route}`}</div>
+            <div className="chart-subtitle">{route === 'ALL' ? 'Top 4 routes by total ridership' : `Route ${route}`}</div>
           </div>
         </div>
-        <Plot
-          data={targets.map((rc, i) => traceFor(rc, i, 'ridership'))}
-          layout={pLayout({ height: 380, yaxis: { ...lightAx, title: { text: 'Ridership', font: { color: '#6b7280', size: 11 } } } })}
-          style={{ width: '100%' }}
-          config={pCfg}
-          useResizeHandler
-        />
-      </div>
-
-      <div className="charts-row">
-        <div className="chart-panel">
-          <div className="chart-header"><div className="chart-title">Load Factor Trend</div></div>
+        <div className="chart-plot" style={{ height: 360 }}>
           <Plot
-            data={targets.map((rc, i) => traceFor(rc, i, 'load_factor_route', 100))}
-            layout={pLayout({ height: 280, yaxis: { ...lightAx, title: { text: 'LF %', font: { color: '#6b7280', size: 11 } } } })}
-            style={{ width: '100%' }}
+            data={targets.map((rc, i) => traceFor(rc, i, 'ridership'))}
+            layout={pLayout({
+              height: 360,
+              yaxis: { title: { text: 'Ridership', font: { color: '#6b7280', size: 11 } } },
+              xaxis: { tickangle: -30 },
+            })}
+            style={{ width: '100%', height: '100%' }}
             config={pCfg}
             useResizeHandler
           />
         </div>
-        <div className="chart-panel">
-          <div className="chart-header"><div className="chart-title">Revenue Trend</div></div>
+      </div>
+
+      <div className="chart-panel">
+        <div className="chart-header"><div className="chart-title">Load Factor Trend</div></div>
+        <div className="chart-plot" style={{ height: 300 }}>
+          <Plot
+            data={targets.map((rc, i) => traceFor(rc, i, 'load_factor_route', 100))}
+            layout={pLayout({
+              height: 300,
+              yaxis: { title: { text: 'LF %', font: { color: '#6b7280', size: 11 } }, ticksuffix: '%' },
+              xaxis: { tickangle: -30 },
+            })}
+            style={{ width: '100%', height: '100%' }}
+            config={pCfg}
+            useResizeHandler
+          />
+        </div>
+      </div>
+
+      <div className="chart-panel">
+        <div className="chart-header"><div className="chart-title">Revenue Trend</div></div>
+        <div className="chart-plot" style={{ height: 300 }}>
           <Plot
             data={targets.map((rc, i) => traceFor(rc, i, 'revenue'))}
-            layout={pLayout({ height: 280, yaxis: { ...lightAx, title: { text: 'Revenue (₹)', font: { color: '#6b7280', size: 11 } } } })}
-            style={{ width: '100%' }}
+            layout={pLayout({
+              height: 300,
+              yaxis: { title: { text: 'Revenue (₹)', font: { color: '#6b7280', size: 11 } } },
+              xaxis: { tickangle: -30 },
+            })}
+            style={{ width: '100%', height: '100%' }}
             config={pCfg}
             useResizeHandler
           />
@@ -667,13 +736,17 @@ function EfficiencyPage({ data, date }: { data: DashboardData; date: string }) {
         {(() => { const c = lineChart('ATL (km)', 'atl', '#f43f5e', n => n.toFixed(2) + ' km', 'km'); return (
           <div className="chart-panel">
             <div className="chart-header"><div className="chart-title">Avg Trip Length (ATL)</div><div className="chart-subtitle">Pax-km ÷ Ridership</div></div>
+            <div className="chart-plot" style={{ height: 320 }}>
             <Plot data={c.data} layout={c.layout} style={{ width: '100%' }} config={pCfg} useResizeHandler />
+            </div>
           </div>
         )})()}
         {(() => { const c = lineChart('Fare Yield (₹)', 'fareYield', '#14b8a6', n => '₹' + n.toFixed(2), '₹ / Pax'); return (
           <div className="chart-panel">
             <div className="chart-header"><div className="chart-title">Fare Yield</div><div className="chart-subtitle">Revenue ÷ Ridership</div></div>
+            <div className="chart-plot" style={{ height: 320 }}>
             <Plot data={c.data} layout={c.layout} style={{ width: '100%' }} config={pCfg} useResizeHandler />
+            </div>
           </div>
         )})()}
       </div>
@@ -682,13 +755,17 @@ function EfficiencyPage({ data, date }: { data: DashboardData; date: string }) {
         {(() => { const c = lineChart('Trips/Bus', 'tripsPerBus', '#f97316', n => n.toFixed(1), 'Trips/Bus'); return (
           <div className="chart-panel">
             <div className="chart-header"><div className="chart-title">Trips per Bus</div><div className="chart-subtitle">Bus utilisation ratio</div></div>
+            <div className="chart-plot" style={{ height: 320 }}>
             <Plot data={c.data} layout={c.layout} style={{ width: '100%' }} config={pCfg} useResizeHandler />
+            </div>
           </div>
         )})()}
         {(() => { const c = lineChart('Rev/Trip (₹)', 'revPerTrip', '#3b82f6', n => '₹' + n.toFixed(0), '₹ / Trip'); return (
           <div className="chart-panel">
             <div className="chart-header"><div className="chart-title">Revenue per Trip</div><div className="chart-subtitle">Earnings per operated trip</div></div>
+            <div className="chart-plot" style={{ height: 320 }}>
             <Plot data={c.data} layout={c.layout} style={{ width: '100%' }} config={pCfg} useResizeHandler />
+            </div>
           </div>
         )})()}
       </div>
@@ -743,7 +820,8 @@ function EfficiencyPage({ data, date }: { data: DashboardData; date: string }) {
             <div className="chart-subtitle">Normalised scores — outer = better performance</div>
           </div>
         </div>
-        <Plot
+        <div className="chart-plot" style={{ height: 420 }}>
+            <Plot
           data={routeEffRows.slice(0, 6).map((r, i) => {
             const maxFY = Math.max(...routeEffRows.map(x => x.fareYield), 1)
             const maxRPT = Math.max(...routeEffRows.map(x => x.ridersPerTrip), 1)
@@ -780,10 +858,11 @@ function EfficiencyPage({ data, date }: { data: DashboardData; date: string }) {
             legend: { font: { color: '#4b5563', size: 11 }, bgcolor: 'transparent', orientation: 'h', y: -0.12 },
             hoverlabel: { bgcolor: '#1e2240', bordercolor: '#2d3350', font: { color: '#eef2ff', family: 'Source Sans 3', size: 12 } },
           }}
-          style={{ width: '100%' }}
+          style={{ width: '100%', height: '100%' }}
           config={pCfg}
           useResizeHandler
         />
+            </div>
       </div>
     </div>
   )
@@ -858,62 +937,88 @@ function TemporalPage({ data, date, route }: { data: DashboardData; date: string
       <div className="chart-panel">
         <div className="chart-header">
           <div>
-            <div className="chart-title">Hourly Ridership & Revenue Distribution</div>
-            <div className="chart-subtitle">{date} • {route === 'ALL' ? 'All routes' : `Route ${route}`}</div>
+            <div className="chart-title">Hourly Ridership</div>
+            <div className="chart-subtitle">{date} · {route === 'ALL' ? 'All routes' : `Route ${route}`}</div>
           </div>
         </div>
-        <Plot
-          data={[
-            {
+        <div className="chart-plot" style={{ height: 340 }}>
+          <Plot
+            data={[{
               x: rows.map(r => r.label),
               y: rows.map(r => r.ridership),
               type: 'bar' as const,
               name: 'Ridership',
-              marker: {
-                color: rows.map(r => {
-                  const mx = Math.max(...rows.map(rr => rr.ridership), 1)
-                  return `rgba(99, 102, 241, ${0.35 + (r.ridership / mx) * 0.55})`
-                }),
-              },
-            },
-            {
+              marker: { color: '#0b3d5c', opacity: 0.85 },
+              hovertemplate: '%{x}<br>Ridership: %{y:,}<extra></extra>',
+            }]}
+            layout={pLayout({
+              height: 340,
+              showlegend: false,
+              xaxis: { title: { text: 'Hour of day', font: { color: '#6b7280', size: 11 } }, tickangle: -45, dtick: 1 },
+              yaxis: { title: { text: 'Ridership', font: { color: '#6b7280', size: 11 } } },
+            })}
+            style={{ width: '100%', height: '100%' }}
+            config={pCfg}
+            useResizeHandler
+          />
+        </div>
+      </div>
+
+      <div className="chart-panel">
+        <div className="chart-header">
+          <div>
+            <div className="chart-title">Hourly Revenue</div>
+            <div className="chart-subtitle">{date}</div>
+          </div>
+        </div>
+        <div className="chart-plot" style={{ height: 300 }}>
+          <Plot
+            data={[{
               x: rows.map(r => r.label),
               y: rows.map(r => r.revenue),
               type: 'scatter' as const,
               mode: 'lines+markers' as const,
-              name: 'Revenue (₹)',
-              yaxis: 'y2',
-              line: { color: '#22d3ee', width: 2.5 },
-              marker: { size: 5, color: '#22d3ee' },
-            },
-          ]}
-          layout={pLayout({
-            height: 420,
-            xaxis: { ...lightAx, title: { text: 'Hour of Day', font: { color: '#6b7280', size: 11 } } },
-            yaxis: { ...lightAx, title: { text: 'Ridership', font: { color: '#6b7280', size: 11 } } },
-            yaxis2: { ...lightAx, title: { text: 'Revenue (₹)', font: { color: '#6b7280', size: 11 } }, overlaying: 'y', side: 'right' },
-          })}
-          style={{ width: '100%' }}
-          config={pCfg}
-          useResizeHandler
-        />
+              name: 'Revenue',
+              line: { color: '#0f766e', width: 2.5 },
+              marker: { size: 6, color: '#0f766e' },
+              hovertemplate: '%{x}<br>Revenue: ₹%{y:,.0f}<extra></extra>',
+            }]}
+            layout={pLayout({
+              height: 300,
+              showlegend: false,
+              xaxis: { title: { text: 'Hour of day', font: { color: '#6b7280', size: 11 } }, tickangle: -45 },
+              yaxis: { title: { text: 'Revenue (₹)', font: { color: '#6b7280', size: 11 } } },
+            })}
+            style={{ width: '100%', height: '100%' }}
+            config={pCfg}
+            useResizeHandler
+          />
+        </div>
       </div>
 
       <div className="chart-panel">
         <div className="chart-header"><div className="chart-title">Trips by Hour</div></div>
-        <Plot
-          data={[{
-            x: rows.map(r => r.label),
-            y: rows.map(r => r.trips),
-            type: 'bar' as const,
-            name: 'Trips',
-            marker: { color: '#10b981', opacity: 0.7 },
-          }]}
-          layout={pLayout({ height: 260, yaxis: { ...lightAx, title: { text: 'Trips', font: { color: '#6b7280', size: 11 } } } })}
-          style={{ width: '100%' }}
-          config={pCfg}
-          useResizeHandler
-        />
+        <div className="chart-plot" style={{ height: 280 }}>
+          <Plot
+            data={[{
+              x: rows.map(r => r.label),
+              y: rows.map(r => r.trips),
+              type: 'bar' as const,
+              name: 'Trips',
+              marker: { color: '#059669', opacity: 0.8 },
+              hovertemplate: '%{x}<br>Trips: %{y}<extra></extra>',
+            }]}
+            layout={pLayout({
+              height: 280,
+              showlegend: false,
+              xaxis: { tickangle: -45 },
+              yaxis: { title: { text: 'Trips', font: { color: '#6b7280', size: 11 } } },
+            })}
+            style={{ width: '100%', height: '100%' }}
+            config={pCfg}
+            useResizeHandler
+          />
+        </div>
       </div>
     </div>
   )
@@ -1007,75 +1112,92 @@ function StopsMapPage({ data, date, routeDirection }: { data: DashboardData; dat
 
       {/* BA Line Loading + Boarding/Alighting */}
       {baRows.length > 0 && (
-        <div className="charts-row">
+        <>
           <div className="chart-panel">
             <div className="chart-header">
               <div>
                 <div className="chart-title">Passenger Load Along Route</div>
-                <div className="chart-subtitle">Trip: {baRows[0]?.bus_trip_key}</div>
+                <div className="chart-subtitle">Trip: {baRows[0]?.bus_trip_key} · hover a point for stop name</div>
               </div>
             </div>
-            <Plot
-              data={[{
-                x: baRows.map(r => `${r.stop_no}`),
-                y: baRows.map(r => r.passenger_load),
-                type: 'scatter' as const,
-                mode: 'lines+markers' as const,
-                fill: 'tozeroy',
-                fillcolor: 'rgba(99, 102, 241, 0.08)',
-                line: { color: '#6366f1', width: 2.5, shape: 'spline' },
-                marker: { size: 6, color: '#6366f1' },
-                name: 'Passenger Load',
-                text: baRows.map(r => r.stop_name),
-                hovertemplate: '<b>%{text}</b><br>Stop %{x}<br>Load: %{y}<extra></extra>',
-              }]}
-              layout={pLayout({
-                height: 300,
-                xaxis: { ...lightAx, title: { text: 'Stop No.', font: { color: '#6b7280', size: 11 } } },
-                yaxis: { ...lightAx, title: { text: 'Passengers', font: { color: '#6b7280', size: 11 } } },
-              })}
-              style={{ width: '100%' }}
-              config={pCfg}
-              useResizeHandler
-            />
+            <div className="chart-plot" style={{ height: 320 }}>
+              <Plot
+                data={[{
+                  x: baRows.map(r => r.stop_no),
+                  y: baRows.map(r => r.passenger_load),
+                  type: 'scatter' as const,
+                  mode: 'lines+markers' as const,
+                  fill: 'tozeroy',
+                  fillcolor: 'rgba(11, 61, 92, 0.08)',
+                  line: { color: '#0b3d5c', width: 2.5, shape: 'spline' },
+                  marker: { size: 7, color: '#0b3d5c' },
+                  name: 'Passenger load',
+                  customdata: baRows.map(r => r.stop_name),
+                  hovertemplate: '<b>%{customdata}</b><br>Stop %{x}<br>Load: %{y}<extra></extra>',
+                }]}
+                layout={pLayout({
+                  height: 320,
+                  showlegend: false,
+                  xaxis: {
+                    title: { text: 'Stop number', font: { color: '#6b7280', size: 11 } },
+                    dtick: 1,
+                    range: [0.5, Math.max(...baRows.map(r => r.stop_no)) + 0.5],
+                  },
+                  yaxis: { title: { text: 'Passengers', font: { color: '#6b7280', size: 11 } } },
+                })}
+                style={{ width: '100%', height: '100%' }}
+                config={pCfg}
+                useResizeHandler
+              />
+            </div>
           </div>
 
           <div className="chart-panel">
-            <div className="chart-header"><div className="chart-title">Boarding & Alighting per Stop</div></div>
-            <Plot
-              data={[
-                {
-                  x: baRows.map(r => `${r.stop_no}`),
-                  y: baRows.map(r => r.boarding),
-                  type: 'bar' as const,
-                  name: 'Boarding',
-                  marker: { color: '#10b981', opacity: 0.8 },
-                  text: baRows.map(r => r.stop_name),
-                  hovertemplate: '<b>%{text}</b><br>Boarding: %{y}<extra></extra>',
-                },
-                {
-                  x: baRows.map(r => `${r.stop_no}`),
-                  y: baRows.map(r => -r.alighting),
-                  type: 'bar' as const,
-                  name: 'Alighting',
-                  marker: { color: '#f43f5e', opacity: 0.8 },
-                  text: baRows.map(r => r.stop_name),
-                  customdata: baRows.map(r => r.alighting),
-                  hovertemplate: '<b>%{text}</b><br>Alighting: %{customdata}<extra></extra>',
-                },
-              ]}
-              layout={pLayout({
-                height: 300,
-                barmode: 'relative',
-                xaxis: { ...lightAx, title: { text: 'Stop No.', font: { color: '#6b7280', size: 11 } } },
-                yaxis: { ...lightAx, title: { text: 'Passengers', font: { color: '#6b7280', size: 11 } } },
-              })}
-              style={{ width: '100%' }}
-              config={pCfg}
-              useResizeHandler
-            />
+            <div className="chart-header">
+              <div>
+                <div className="chart-title">Boarding & Alighting per Stop</div>
+                <div className="chart-subtitle">Green = boarding · Red = alighting · hover for stop name</div>
+              </div>
+            </div>
+            <div className="chart-plot" style={{ height: 340 }}>
+              <Plot
+                data={[
+                  {
+                    x: baRows.map(r => r.stop_no),
+                    y: baRows.map(r => r.boarding),
+                    type: 'bar' as const,
+                    name: 'Boarding',
+                    marker: { color: '#059669' },
+                    customdata: baRows.map(r => r.stop_name),
+                    hovertemplate: '<b>%{customdata}</b><br>Boarding: %{y}<extra></extra>',
+                  },
+                  {
+                    x: baRows.map(r => r.stop_no),
+                    y: baRows.map(r => -r.alighting),
+                    type: 'bar' as const,
+                    name: 'Alighting',
+                    marker: { color: '#dc2626' },
+                    customdata: baRows.map(r => [r.stop_name, r.alighting]),
+                    hovertemplate: '<b>%{customdata[0]}</b><br>Alighting: %{customdata[1]}<extra></extra>',
+                  },
+                ]}
+                layout={pLayout({
+                  height: 340,
+                  barmode: 'relative',
+                  xaxis: {
+                    title: { text: 'Stop number', font: { color: '#6b7280', size: 11 } },
+                    dtick: 1,
+                    range: [0.5, Math.max(...baRows.map(r => r.stop_no)) + 0.5],
+                  },
+                  yaxis: { title: { text: 'Passengers', font: { color: '#6b7280', size: 11 } }, zeroline: true },
+                })}
+                style={{ width: '100%', height: '100%' }}
+                config={pCfg}
+                useResizeHandler
+              />
+            </div>
           </div>
-        </div>
+        </>
       )}
 
       {/* Stop details table */}

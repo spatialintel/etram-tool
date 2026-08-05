@@ -285,6 +285,9 @@
   flex-direction: column;
   gap: 20px;
   animation: fadeSlide 0.2s var(--ease) both;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 @keyframes fadeSlide {
@@ -411,6 +414,25 @@
   padding: 20px 22px;
   box-shadow: var(--shadow-sm);
   transition: box-shadow 200ms var(--ease);
+  overflow: hidden;
+  position: relative;
+  isolation: isolate;
+  min-width: 0;
+}
+
+.chart-plot {
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+  position: relative;
+  min-width: 0;
+}
+
+.chart-plot .js-plotly-plot,
+.chart-plot .plot-container,
+.chart-plot .svg-container {
+  width: 100% !important;
+  max-width: 100% !important;
 }
 
 .chart-panel:hover {
@@ -475,6 +497,13 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 14px;
+  align-items: start;
+  min-width: 0;
+}
+
+.charts-row > .chart-panel {
+  min-width: 0;
+  max-width: 100%;
 }
 
 /* ── Data Tables ───────────────────────────────────────────── */
