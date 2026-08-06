@@ -322,9 +322,9 @@ export function RoutesPage({
       </div>
 
       {tab === 'chart' && (
-        <>
+        <div className="charts-row">
           <Card title={`Route ranking \u00B7 ${METRIC_OPTIONS.find((m) => m.value === filters.metric)?.label}`} subtitle={rangeLabel}>
-            <Chart option={rankingOpt} height={Math.max(280, rows.length * 28)} group="routes" empty={rows.length === 0} />
+            <Chart option={rankingOpt} height={Math.max(320, rows.length * 28)} group="routes" empty={rows.length === 0} />
           </Card>
           <Card
             title={scatterMode === 'epkm-lf' ? 'Earnings per km vs load factor' : 'Load factor vs ridership'}
@@ -338,9 +338,9 @@ export function RoutesPage({
                 ariaLabel="Scatter axes"
               />
             </div>
-            <Chart option={scatterOpt} height={340} group="routes" empty={rows.length === 0} />
+            <Chart option={scatterOpt} height={Math.max(320, rows.length * 28)} group="routes" empty={rows.length === 0} />
           </Card>
-        </>
+        </div>
       )}
 
       {tab === 'table' && (

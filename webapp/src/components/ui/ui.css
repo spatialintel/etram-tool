@@ -630,7 +630,10 @@
 [data-density="compact"] .ui-stat-sub { font-size: 11px; }
 [data-density="compact"] .ui-stat-spark-caption { font-size: 10px; }
 [data-density="compact"] .ui-stat-spark .ui-sparkline { height: 20px; }
-[data-density="compact"] .kpi-grid { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
+[data-density="compact"] .kpi-grid { gap: 10px; }
+[data-density="compact"] .kpi-grid--auto {
+  grid-template-columns: repeat(auto-fill, minmax(min(170px, 100%), 1fr));
+}
 [data-density="compact"] .ui-shell-header { padding: 6px 16px 8px; }
 [data-density="compact"] .ui-shell-content { padding: 14px 16px; }
 [data-density="compact"] .ui-page-header-title { font-size: 16px; }

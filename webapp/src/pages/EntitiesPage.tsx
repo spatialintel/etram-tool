@@ -273,7 +273,7 @@ export function EntitiesPage({
 
   return (
     <div className="page">
-      <div className="kpi-grid">
+      <div className={`kpi-grid${isStop ? ' kpi-grid--3' : ' kpi-grid--5'}`}>
         <StatCard
           label={
             isStop

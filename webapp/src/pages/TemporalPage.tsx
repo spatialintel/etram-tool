@@ -373,7 +373,7 @@ export function TemporalPage({
 
         <section aria-labelledby="temporal-supply-kpis">
           <h2 id="temporal-supply-kpis" className="section-label">Service reliability summary</h2>
-          <div className="kpi-grid">
+          <div className="kpi-grid kpi-grid--3">
             <StatCard
               label="Peak headway"
               value={peakHeadway.peak != null ? `${peakHeadway.peak} min` : '\u2014'}

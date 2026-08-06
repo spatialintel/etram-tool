@@ -151,7 +151,10 @@
   gap: 16px;
 }
 @media (max-width: 1100px) {
-  .bento-kpi, .bento-mid, .bento-bottom, .bento-footer { grid-template-columns: 1fr; }
+  .bento-kpi { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .bento-mid,
+  .bento-bottom,
+  .bento-footer { grid-template-columns: 1fr; }
 }
 .ops-grid {
   display: grid;
@@ -173,10 +176,15 @@
 /* ── KPI Cards ─────────────────────────────────────────────── */
 .kpi-grid {
   display: grid;
-  /* Wide enough that a seven-digit figure and its trend line both fit inside
-     the card at the default type scale. */
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  /* Fixed columns, not auto-fill: a 240px min wraps the 4th card onto a second
+     row as soon as the content pane is under ~1,000px. Cards shrink instead. */
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 18px;
+}
+.kpi-grid--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.kpi-grid--5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.kpi-grid--auto {
+  grid-template-columns: repeat(auto-fill, minmax(min(200px, 100%), 1fr));
 }
 .temporal-kpi-groups {
   display: grid;
@@ -233,14 +241,25 @@
 .charts-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 14px;
+  gap: 16px;
   align-items: start;
   min-width: 0;
+}
+
+.charts-row--stack {
+  grid-template-columns: 1fr;
 }
 
 .charts-row > .ui-card {
   min-width: 0;
   max-width: 100%;
+}
+
+@media (max-width: 1100px) {
+  .charts-row { grid-template-columns: 1fr; }
+  .charts-row .panel-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 /* ── Data Tables ───────────────────────────────────────────── */
@@ -673,16 +692,20 @@ details[open] .slot-summary::before { transform: rotate(90deg); }
 
 /* ── Responsive ────────────────────────────────────────────── */
 @media (max-width: 1200px) {
-  .charts-row { grid-template-columns: 1fr; }
+  .kpi-grid--5 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 
 @media (max-width: 900px) {
   .page-content { padding: 16px; }
-  .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+  .kpi-grid,
+  .kpi-grid--3,
+  .kpi-grid--5 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (max-width: 640px) {
-  .kpi-grid { grid-template-columns: 1fr; }
+  .kpi-grid,
+  .kpi-grid--3,
+  .kpi-grid--5 { grid-template-columns: 1fr; }
   .filter-bar,
   .ui-filter-bar { flex-direction: column; align-items: flex-start; height: auto; padding: 10px 0; }
   .slot-grid { grid-template-columns: 1fr; }
@@ -847,6 +870,10 @@ details[open] .slot-summary::before { transform: rotate(90deg); }
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius);
   background: var(--bg-muted, #f8fafc);
+}
+
+@media (max-width: 640px) {
+  .panel-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 .panel-stats > div { min-width: 0; }
 .panel-stats dt {
@@ -1030,7 +1057,9 @@ details[open] .slot-summary::before { transform: rotate(90deg); }
     max-height: none;
   }
   .bento-kpi,
-  .kpi-grid {
+  .kpi-grid,
+  .kpi-grid--3,
+  .kpi-grid--5 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .bento-mid,
@@ -1048,7 +1077,9 @@ details[open] .slot-summary::before { transform: rotate(90deg); }
 
 @media (max-width: 375px) {
   .bento-kpi,
-  .kpi-grid {
+  .kpi-grid,
+  .kpi-grid--3,
+  .kpi-grid--5 {
     grid-template-columns: 1fr;
   }
   .agency-chip,
