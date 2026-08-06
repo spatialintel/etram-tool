@@ -25,9 +25,10 @@ sources:
       vehicles: Veh_Type
   stop_sequence:
     type: excel_folder
-    # May stop-sequence extracts not provided; April files keep BA schema alive
-    # (dates will WARN as ticket_dates_missing_sequence).
-    path: Input files/April Data/Stops sequence
+    # May sequences projected from April (see scripts/build_may_stop_sequence.py).
+    # April extracts only contain 12 unique Date values (files 15–30 Apr are
+    # mis-dated as 12 Apr); May 13–31 therefore reuse the 12 Apr template.
+    path: Input files/May Data/Stops sequence
     sheet: StopsSeq
     file_glob: "*.xlsx"
 

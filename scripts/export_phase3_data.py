@@ -15,7 +15,7 @@ if str(ROOT) not in sys.path:
 
 from etram.metrics.kpis import summarize_kpis  # noqa: E402
 
-MAX_PAYLOAD_BYTES = 8 * 1024 * 1024
+MAX_PAYLOAD_BYTES = 16 * 1024 * 1024
 OD_PAIRS_PER_SLICE = 80
 
 
@@ -193,6 +193,11 @@ def main(agency_id: str = "bhavnagar") -> None:
         how="left",
     )
     stop_agg = stop_agg.dropna(subset=["latitude", "longitude"])
+    # Drop inert day×stop rows (keeps May BA payload manageable).
+    if {"boarding", "alighting"}.issubset(stop_agg.columns):
+        stop_agg = stop_agg.loc[
+            (stop_agg["boarding"].fillna(0) + stop_agg["alighting"].fillna(0)) > 0
+        ].copy()
 
     ba_scored = ba.copy()
     ba_scored["boarding_plus_alighting"] = ba_scored["boarding"] + ba_scored["alighting"]

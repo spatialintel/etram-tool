@@ -26,6 +26,32 @@ def build_ba_stop_trip(
         keep="first",
     )
 
+    t = tickets.copy()
+    t["service_date"] = pd.to_datetime(t["service_date"]).dt.normalize()
+    # May Conductor extracts often lack Origin/Destination Stop No. Resolve from
+    # sequence by (route_direction, stop_abbr) so boarding keys join.
+    if t["origin_stop_no"].isna().mean() > 0.5 or t["destination_stop_no"].isna().mean() > 0.5:
+        lookup = (
+            seq.dropna(subset=["stop_abbr"])
+            .groupby(["agency_id", "route_direction_key", "stop_abbr"], dropna=False)["stop_no"]
+            .agg(lambda s: int(s.mode().iloc[0]) if len(s.mode()) else int(s.iloc[0]))
+        )
+        lookup_dict = lookup.to_dict()
+        for abbr_col, no_col, key_col in (
+            ("origin_abbr", "origin_stop_no", "stop_origin_key"),
+            ("destination_abbr", "destination_stop_no", "stop_destination_key"),
+        ):
+            keys = list(
+                zip(
+                    t["agency_id"].tolist(),
+                    t["route_direction_key"].tolist(),
+                    t[abbr_col].astype(str).tolist(),
+                )
+            )
+            resolved = pd.Series([lookup_dict.get(k) for k in keys], index=t.index)
+            t[no_col] = resolved.astype("Int64")
+            t[key_col] = t[no_col].astype(str) + "-" + t[abbr_col].astype(str)
+
     skel = trips.merge(
         seq[
             [
@@ -44,9 +70,6 @@ def build_ba_stop_trip(
         on=["agency_id", "service_date", "route_direction_key"],
         how="inner",
     )
-
-    t = tickets.copy()
-    t["service_date"] = pd.to_datetime(t["service_date"]).dt.normalize()
 
     board = (
         t.groupby(
