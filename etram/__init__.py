@@ -138,14 +138,24 @@ def _update_job(job_id: str, **kwargs: Any) -> None:
         _persist_jobs()
 
 
-def _safe_filename(name: str | None, fallback: str) -> str:
+def _safe_filename(
+    name: str | None,
+    fallback: str,
+    *,
+    allowed_exts: tuple[str, ...] = (".xlsx", ".xls"),
+) -> str:
     """Basename only — blocks path traversal and empty/odd names."""
     raw = (name or "").replace("\\", "/").strip()
     base = Path(raw).name.strip()
     if not base or base in (".", "..") or "/" in base or "\\" in base:
         return fallback
-    if not re.search(r"\.(xlsx|xls)$", base, re.I):
-        raise HTTPException(status_code=400, detail=f"Only .xlsx or .xls files are allowed ({base})")
+    exts = tuple(e.lower() if e.startswith(".") else f".{e.lower()}" for e in allowed_exts)
+    if not any(base.lower().endswith(ext) for ext in exts):
+        allowed = ", ".join(exts)
+        raise HTTPException(
+            status_code=400,
+            detail=f"Only {allowed} files are allowed ({base})",
+        )
     return base
 
 
@@ -354,7 +364,11 @@ async def create_job(
         etm_dir = job_dir / "ETM Data"
         etm_paths: list[Path] = []
         for i, f in enumerate(uploads):
-            name = _safe_filename(f.filename, f"etm-{i:02d}.csv")
+            name = _safe_filename(
+                f.filename,
+                f"etm-{i:02d}.csv",
+                allowed_exts=(".xlsx", ".xls", ".csv"),
+            )
             path = etm_dir / name
             await _save_upload(path, f)
             etm_paths.append(path)
