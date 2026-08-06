@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { DashboardData, DashboardMeta } from '../types'
 
-const STATIC_URL = '/data/bhavnagar-dashboard.json'
+const SESSION_KEY = 'etram.dashboard.session'
 
 export type UseDashboardData = {
   data: DashboardData | null
@@ -14,48 +14,72 @@ export type UseDashboardData = {
   reload: () => void
   /** Swap in a payload produced by an upload job. */
   replace: (d: DashboardData) => void
+  clear: () => void
 }
 
-export function useDashboardData(url: string = STATIC_URL): UseDashboardData {
-  const [data, setData] = useState<DashboardData | null>(null)
+function readSession(): DashboardData | null {
+  try {
+    const raw = sessionStorage.getItem(SESSION_KEY)
+    if (!raw) return null
+    return JSON.parse(raw) as DashboardData
+  } catch {
+    return null
+  }
+}
+
+function writeSession(d: DashboardData | null) {
+  try {
+    if (!d) sessionStorage.removeItem(SESSION_KEY)
+    else sessionStorage.setItem(SESSION_KEY, JSON.stringify(d))
+  } catch {
+    /* quota / private mode — ignore */
+  }
+}
+
+/**
+ * Upload-first: no city dashboard is preloaded from static files.
+ * Data appears only after a successful upload job (optionally restored
+ * from this browser tab's sessionStorage).
+ */
+export function useDashboardData(): UseDashboardData {
+  const [data, setData] = useState<DashboardData | null>(() => readSession())
   const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [nonce, setNonce] = useState(0)
+  const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    let cancelled = false
-    setLoading(true)
-    fetch(url)
-      .then((res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        return res.json()
-      })
-      .then((json: DashboardData) => {
-        if (cancelled) return
-        setData(json)
-        setError(null)
-      })
-      .catch((e) => {
-        if (!cancelled) setError(e instanceof Error ? e.message : String(e))
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [url, nonce])
+    // Intentionally do not fetch /data/* — portal stays empty until upload.
+  }, [])
 
-  const reload = useCallback(() => setNonce((n) => n + 1), [])
+  const reload = useCallback(() => {
+    setData(readSession())
+    setError(null)
+  }, [])
 
   const replace = useCallback((d: DashboardData) => {
+    writeSession(d)
     setData(d)
     setError(null)
     setLoading(false)
   }, [])
 
+  const clear = useCallback(() => {
+    writeSession(null)
+    setData(null)
+    setError(null)
+  }, [])
+
   const meta = data?.meta ?? null
   const schemaVersion = meta?.schema_version ?? 1
 
-  return { data, meta, schemaVersion, isV2: schemaVersion >= 2, loading, error, reload, replace }
+  return {
+    data,
+    meta,
+    schemaVersion,
+    isV2: schemaVersion >= 2,
+    loading,
+    error,
+    reload,
+    replace,
+    clear,
+  }
 }

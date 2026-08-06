@@ -60,15 +60,25 @@ const GRANULARITY_OPTIONS: { value: Granularity; label: string }[] = [
 ]
 
 function App() {
-  const { data, error, replace } = useDashboardData()
-  const { page: rawPage, filters, setPage, setFilters, reset } = useUrlFilters(DEFAULT_FILTERS, 'overview')
-  const page: Page = (PAGES.has(rawPage) ? rawPage : 'overview') as Page
+  const { data, error, replace, clear } = useDashboardData()
+  const { page: rawPage, filters, setPage, setFilters, reset } = useUrlFilters(
+    DEFAULT_FILTERS,
+    data ? 'overview' : 'upload',
+  )
+  const page: Page = (PAGES.has(rawPage) ? rawPage : (data ? 'overview' : 'upload')) as Page
   const [prefs, setPrefs] = usePrefs()
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', prefs.theme)
     document.documentElement.setAttribute('data-density', prefs.density)
   }, [prefs.theme, prefs.density])
+
+  // With no dataset loaded, keep the user on Upload.
+  useEffect(() => {
+    if (!data && page !== 'upload' && page !== 'definitions') {
+      setPage('upload')
+    }
+  }, [data, page, setPage])
 
   const dateMin = data?.agency.date_min
   const dateMax = data?.agency.date_max
@@ -137,10 +147,51 @@ function App() {
       <div className="loading-screen">
         <p>Unable to load the dashboard.</p>
         <p className="loading-detail">{error}</p>
+        <Button variant="primary" onClick={() => { clear(); setPage('upload') }}>Go to Upload</Button>
       </div>
     )
   }
-  if (!data) return <div className="loading-screen"><SkeletonPage /></div>
+
+  // Empty portal: upload-first shell (no city data preloaded).
+  if (!data) {
+    return (
+      <AppShell
+        sidebar={
+          <Sidebar
+            agencyName="No dataset loaded"
+            dateMin="—"
+            dateMax="—"
+            page={page === 'definitions' ? 'definitions' : 'upload'}
+            items={navItems.filter((n) => n.id === 'upload' || n.id === 'definitions')}
+            onNavigate={setPage}
+          />
+        }
+        header={
+          <PageHeader
+            title={page === 'definitions' ? pageTitles.definitions.title : pageTitles.upload.title}
+            subtitle={
+              page === 'definitions'
+                ? pageTitles.definitions.subtitle
+                : 'Upload ETM, supporting, and stop-sequence files to build a dashboard'
+            }
+            actions={
+              <PrefsBar
+                prefs={prefs}
+                onChange={setPrefs}
+                currentUrl={typeof window !== 'undefined' ? window.location.hash || '#/upload' : '#/upload'}
+              />
+            }
+          />
+        }
+      >
+        <ErrorBoundary key={`empty-${prefs.theme}`}>
+          <Suspense fallback={<SkeletonPage />}>
+            {page === 'definitions' ? <DefinitionsPage /> : <UploadPage onDataLoaded={handleDataUpdate} />}
+          </Suspense>
+        </ErrorBoundary>
+      </AppShell>
+    )
+  }
 
   const rangeReady = Boolean(filters.range.start && filters.range.end)
   const pageFilters: FilterState = rangeReady ? filters : { ...filters, range: fullRange! }
@@ -172,6 +223,15 @@ function App() {
                   currentUrl={typeof window !== 'undefined' ? window.location.hash || '#/overview' : '#/overview'}
                 />
                 <Button variant="primary" onClick={() => setPage('upload')}>Upload Data</Button>
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    clear()
+                    setPage('upload')
+                  }}
+                >
+                  Clear dataset
+                </Button>
               </>
             }
           />

@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import os
 import re
-import shutil
 import subprocess
 import sys
 import threading
@@ -24,7 +23,7 @@ from fastapi.staticfiles import StaticFiles
 from etram.ingest.load import run_ingest
 from etram.metrics.build import run_metrics
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 MAX_UPLOAD_BYTES = 50 * 1024 * 1024
 MAX_STOP_SEQ_FILES = 62
 AGENCY_ID_RE = re.compile(r"^[a-z][a-z0-9_-]{0,63}$")
@@ -186,42 +185,95 @@ async def _save_upload(dest: Path, file: UploadFile) -> int:
 
 
 def _build_job_mapping(
-    job_dir: Path, agency_id: str, etm_path: Path, supporting_path: Path, stops_dir: Path
+    job_dir: Path,
+    agency_id: str,
+    etm_path: Path,
+    supporting_path: Path,
+    stops_dir: Path,
 ) -> Path:
     root = _project_root()
     base_mapping_path = root / "config" / "agencies" / f"{agency_id}.yaml"
     cfg = yaml.safe_load(base_mapping_path.read_text(encoding="utf-8"))
     cfg["sources"]["etm"]["path"] = str(etm_path.resolve())
     cfg["sources"]["supporting"]["path"] = str(supporting_path.resolve())
+    # Always use the uploaded supporting workbook for routes/vehicles/stops.
+    cfg["sources"]["supporting"].pop("routes_path", None)
+    cfg["sources"]["supporting"].pop("vehicles_path", None)
     cfg["sources"]["stop_sequence"]["path"] = str(stops_dir.resolve())
+    # KML is optional; without a real file, keep supporting Route Length values.
+    kml = cfg.get("kml_route_lengths") or {}
+    kml_rel = (kml.get("path") or "").strip()
+    if not kml_rel:
+        cfg.pop("kml_route_lengths", None)
+    else:
+        kml_path = Path(kml_rel)
+        if not kml_path.is_absolute():
+            kml_path = root / kml_path
+        if not kml_path.exists():
+            cfg.pop("kml_route_lengths", None)
 
     out = job_dir / "mapping.yaml"
     out.write_text(yaml.safe_dump(cfg, sort_keys=False), encoding="utf-8")
     return out
 
 
-def _run_export_script(agency_id: str) -> Path:
+def _run_export_script(agency_id: str, out_path: Path) -> Path:
     root = _project_root()
     script = root / "scripts" / "export_phase3_data.py"
+    out_path.parent.mkdir(parents=True, exist_ok=True)
     subprocess.run(
-        [sys.executable, str(script), "--agency-id", agency_id],
+        [
+            sys.executable,
+            str(script),
+            "--agency-id",
+            agency_id,
+            "--out",
+            str(out_path.resolve()),
+        ],
         check=True,
         cwd=str(root),
     )
-    out = root / "webapp" / "public" / "data" / f"{agency_id}-dashboard.json"
-    if not out.exists():
-        raise FileNotFoundError(f"Expected dashboard JSON not found: {out}")
-    return out
+    if not out_path.exists():
+        raise FileNotFoundError(f"Expected dashboard JSON not found: {out_path}")
+    return out_path
 
 
-def _run_job(job_id: str, mapping_path: Path, agency_id: str) -> None:
+def _run_job(
+    job_id: str,
+    *,
+    agency_id: str,
+    etm_paths: list[Path],
+    supporting_path: Path,
+    stops_dir: Path,
+    distance_path: Path | None,
+) -> None:
+    from etram.ingest.upload_prepare import prepare_etm_for_ingest
+
     acquired = PIPELINE_LOCK.acquire(blocking=True)
     try:
         _update_job(job_id, status="running")
         _append_job_log(job_id, "Job started")
         root = _project_root()
+        job_root = _jobs_root() / job_id
 
-        _append_job_log(job_id, "Running ingest")
+        def log(msg: str) -> None:
+            _append_job_log(job_id, msg)
+
+        prepared_csv = job_root / "prepared" / "ETM_ingest.csv"
+        log("Compiling and cleaning ETM uploads")
+        prepare_etm_for_ingest(
+            etm_paths,
+            supporting_path=supporting_path,
+            out_csv=prepared_csv,
+            distance_path=distance_path,
+            log=log,
+        )
+
+        mapping_path = _build_job_mapping(
+            job_root, agency_id, prepared_csv, supporting_path, stops_dir
+        )
+
+        log("Running ingest")
         report = run_ingest(mapping_path, root=root)
         if not report.get("load_ok", False):
             blocked = [
@@ -232,16 +284,14 @@ def _run_job(job_id: str, mapping_path: Path, agency_id: str) -> None:
             detail = "; ".join(blocked[:8]) if blocked else "data quality checks failed"
             raise RuntimeError(f"Ingest rejected: {detail}")
 
-        _append_job_log(job_id, "Running metrics")
+        log("Running metrics")
         run_metrics(agency_id, root=root)
 
-        _append_job_log(job_id, "Exporting dashboard JSON")
-        src = _run_export_script(agency_id)
+        result_path = job_root / "result.json"
+        log("Exporting dashboard JSON")
+        _run_export_script(agency_id, result_path)
 
-        result_path = root / "data" / "jobs" / job_id / "result.json"
-        result_path.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(src, result_path)
-        _append_job_log(job_id, "Job completed successfully")
+        log("Job completed successfully")
         _update_job(job_id, status="succeeded", result_path=str(result_path), error=None)
     except Exception as e:
         _append_job_log(job_id, f"Job failed: {e}")
@@ -259,11 +309,24 @@ def health() -> dict[str, str]:
 @app.post("/api/jobs")
 async def create_job(
     agency_id: str = Form(default="bhavnagar"),
-    etm_file: UploadFile = File(...),
     supporting_file: UploadFile = File(...),
     stop_sequence_files: list[UploadFile] = File(...),
+    etm_file: UploadFile | None = File(None),
+    etm_files: list[UploadFile] | None = File(None),
+    distance_file: UploadFile | None = File(None),
 ) -> dict[str, Any]:
     agency_id = _validate_agency_id(agency_id)
+
+    uploads: list[UploadFile] = []
+    if etm_files:
+        uploads.extend([f for f in etm_files if f is not None and f.filename])
+    if etm_file is not None and etm_file.filename:
+        uploads.append(etm_file)
+    if not uploads:
+        raise HTTPException(
+            status_code=400,
+            detail="At least one ETM file is required (Excel or Conductor Report CSV)",
+        )
 
     if not stop_sequence_files:
         raise HTTPException(status_code=400, detail="At least one stop sequence file is required")
@@ -273,16 +336,6 @@ async def create_job(
             detail=f"Too many stop sequence files (max {MAX_STOP_SEQ_FILES})",
         )
 
-    etm_name = _safe_filename(etm_file.filename, "etm.xlsx")
-    supporting_name = _safe_filename(supporting_file.filename, "supporting.xlsx")
-    stop_names = [
-        _safe_filename(f.filename, f"stops-{i:02d}.xlsx") for i, f in enumerate(stop_sequence_files)
-    ]
-
-    # Upload contract (May+ Conductor Reports): when multiple weekly ETM CSVs
-    # are provided, concatenate them, drop duplicate tickets, and fill blank
-    # Route Number from Route Description via etram.ingest.route_map before
-    # Phase 1 ingest. See Input files/May Data/UPLOAD_PIPELINE_NOTES.md.
     job_id = uuid.uuid4().hex
     now = _utc_now()
     with JOBS_LOCK:
@@ -298,17 +351,28 @@ async def create_job(
 
     job_dir = _jobs_root() / job_id / "input"
     try:
-        etm_path = job_dir / "ETM Data" / etm_name
-        supporting_path = job_dir / supporting_name
-        stops_dir = job_dir / "Stops sequence"
+        etm_dir = job_dir / "ETM Data"
+        etm_paths: list[Path] = []
+        for i, f in enumerate(uploads):
+            name = _safe_filename(f.filename, f"etm-{i:02d}.csv")
+            path = etm_dir / name
+            await _save_upload(path, f)
+            etm_paths.append(path)
 
-        await _save_upload(etm_path, etm_file)
+        supporting_path = job_dir / _safe_filename(supporting_file.filename, "supporting.xlsx")
         await _save_upload(supporting_path, supporting_file)
-        for f, name in zip(stop_sequence_files, stop_names):
+
+        stops_dir = job_dir / "Stops sequence"
+        for i, f in enumerate(stop_sequence_files):
+            name = _safe_filename(f.filename, f"stops-{i:02d}.xlsx")
             await _save_upload(stops_dir / name, f)
 
-        _append_job_log(job_id, "Upload saved")
-        mapping_path = _build_job_mapping(job_dir.parent, agency_id, etm_path, supporting_path, stops_dir)
+        distance_path: Path | None = None
+        if distance_file is not None and distance_file.filename:
+            distance_path = job_dir / _safe_filename(distance_file.filename, "distance.xlsx")
+            await _save_upload(distance_path, distance_file)
+
+        _append_job_log(job_id, f"Upload saved ({len(etm_paths)} ETM file(s))")
     except HTTPException as e:
         _update_job(job_id, status="failed", error=str(e.detail))
         raise
@@ -316,7 +380,18 @@ async def create_job(
         _update_job(job_id, status="failed", error=str(e))
         raise HTTPException(status_code=500, detail="Upload failed") from e
 
-    t = threading.Thread(target=_run_job, args=(job_id, mapping_path, agency_id), daemon=True)
+    t = threading.Thread(
+        target=_run_job,
+        kwargs={
+            "job_id": job_id,
+            "agency_id": agency_id,
+            "etm_paths": etm_paths,
+            "supporting_path": supporting_path,
+            "stops_dir": stops_dir,
+            "distance_path": distance_path,
+        },
+        daemon=True,
+    )
     t.start()
 
     return {"job_id": job_id, "status": "queued"}

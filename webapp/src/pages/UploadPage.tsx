@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Button, Card, DataTable, StatusBadge, useToast, type Column } from '../components/ui'
 import { fmtBytes } from '../lib/format'
-import { classifyFile, validateExcelFile } from '../lib/upload'
+import { classifyFile, validateUploadFile } from '../lib/upload'
 import type { DashboardData } from '../types'
 
 function relativeTime(iso: string): string {
@@ -33,11 +33,20 @@ type JobRow = {
   createdLabel: string
 }
 
+function pushUnique(list: File[], files: File[]): File[] {
+  const next = [...list]
+  for (const f of files) {
+    if (!next.some((x) => x.name === f.name && x.size === f.size)) next.push(f)
+  }
+  return next
+}
+
 export function UploadPage({ onDataLoaded }: { onDataLoaded: (d: DashboardData) => void }) {
   const toast = useToast()
-  const [etm, setEtm] = useState<File | null>(null)
+  const [etmFiles, setEtmFiles] = useState<File[]>([])
   const [supporting, setSupporting] = useState<File | null>(null)
   const [stopsFiles, setStopsFiles] = useState<File[]>([])
+  const [distance, setDistance] = useState<File | null>(null)
   const [jobId, setJobId] = useState<string | null>(null)
   const [status, setStatus] = useState('idle')
   const [error, setError] = useState<string | null>(null)
@@ -58,62 +67,60 @@ export function UploadPage({ onDataLoaded }: { onDataLoaded: (d: DashboardData) 
 
   function handleBulkDrop(files: FileList | null) {
     if (!files) return
-    let nextEtm = etm, nextSup = supporting
+    let nextSup = supporting
+    let nextDist = distance
+    let nextEtm = [...etmFiles]
     const nextStops = [...stopsFiles]
     const unclassified: string[] = []
     for (const f of Array.from(files)) {
-      const err = validateExcelFile(f)
+      const err = validateUploadFile(f)
       if (err) { setError(err); return }
       const slot = classifyFile(f.name)
-      if (slot === 'etm') nextEtm = f
+      if (slot === 'etm') nextEtm = pushUnique(nextEtm, [f])
       else if (slot === 'supporting') nextSup = f
+      else if (slot === 'distance') nextDist = f
       else if (slot === 'stops') {
         if (!nextStops.some(x => x.name === f.name && x.size === f.size)) nextStops.push(f)
       } else {
-        // slot === null — could not auto-classify
         unclassified.push(f.name)
       }
     }
     if (unclassified.length > 0) {
       setError(
         `Could not classify: ${unclassified.join(', ')}. ` +
-        `Rename to match ETM*, Supporting*, or StopsSeq* patterns, or use the individual slots below.`,
+        `Use Conductor_Report*.csv / ETM*.xlsx, Supporting*.xlsx, distance/FLEET*.xlsx, or StopsSeq* / DD-MM-YYYY.xlsx.`,
       )
       return
     }
-    setEtm(nextEtm); setSupporting(nextSup); setStopsFiles(nextStops); setError(null)
+    setEtmFiles(nextEtm); setSupporting(nextSup); setStopsFiles(nextStops); setDistance(nextDist); setError(null)
   }
 
-  /** Per-slot drop handler for individual file zones */
-  function handleSlotDrop(slot: 'etm' | 'supporting' | 'stops', files: FileList | null) {
+  function handleSlotDrop(slot: 'etm' | 'supporting' | 'stops' | 'distance', files: FileList | null) {
     if (!files || files.length === 0) return
     const list = Array.from(files)
     for (const f of list) {
-      const err = validateExcelFile(f)
+      const err = validateUploadFile(f)
       if (err) { setError(err); return }
     }
     setError(null)
-    if (slot === 'etm') { setEtm(list[0]) }
-    else if (slot === 'supporting') { setSupporting(list[0]) }
-    else {
-      setStopsFiles(prev => {
-        const next = [...prev]
-        for (const f of list) {
-          if (!next.some(x => x.name === f.name && x.size === f.size)) next.push(f)
-        }
-        return next
-      })
-    }
+    if (slot === 'etm') setEtmFiles((prev) => pushUnique(prev, list))
+    else if (slot === 'supporting') setSupporting(list[0])
+    else if (slot === 'distance') setDistance(list[0])
+    else setStopsFiles((prev) => pushUnique(prev, list))
   }
 
   async function submit() {
-    if (!etm || !supporting || stopsFiles.length === 0) { setError('Attach ETM, Supporting, and at least one Stops Sequence file.'); return }
+    if (etmFiles.length === 0 || !supporting || stopsFiles.length === 0) {
+      setError('Attach at least one ETM file, Supporting workbook, and one Stops Sequence file.')
+      return
+    }
     setError(null); setStatus('queued'); setLogs([])
     const fd = new FormData()
     fd.append('agency_id', 'bhavnagar')
-    fd.append('etm_file', etm)
+    for (const f of etmFiles) fd.append('etm_files', f)
     fd.append('supporting_file', supporting)
     for (const f of stopsFiles) fd.append('stop_sequence_files', f)
+    if (distance) fd.append('distance_file', distance)
     try {
       const resp = await fetch('/api/jobs', { method: 'POST', body: fd })
       if (!resp.ok) throw new Error(await resp.text() || `HTTP ${resp.status}`)
@@ -122,7 +129,6 @@ export function UploadPage({ onDataLoaded }: { onDataLoaded: (d: DashboardData) 
     } catch (e) { setStatus('failed'); setError(e instanceof Error ? e.message : String(e)) }
   }
 
-  // Poll for job completion
   useEffect(() => {
     if (!jobId) return
     let cancelled = false
@@ -159,9 +165,9 @@ export function UploadPage({ onDataLoaded }: { onDataLoaded: (d: DashboardData) 
         .catch(e => setError(e instanceof Error ? e.message : String(e)))
     }, 2000)
     return () => { cancelled = true; clearInterval(timer) }
-  }, [jobId, onDataLoaded])
+  }, [jobId, onDataLoaded, toast])
 
-  const hasFiles = Boolean(etm && supporting && stopsFiles.length > 0)
+  const hasFiles = etmFiles.length > 0 && Boolean(supporting) && stopsFiles.length > 0
   const ready = hasFiles && !error
   const step = stepIndex(status, hasFiles, status === 'succeeded')
   const steps = ['Select', 'Validate', 'Process', 'Load']
@@ -175,7 +181,7 @@ export function UploadPage({ onDataLoaded }: { onDataLoaded: (d: DashboardData) 
     <div className="page">
       <Card
         title="Upload dataset"
-        subtitle="Provide ETM tickets, supporting tables, and daily stop-sequence files"
+        subtitle="Files are compiled and cleaned on the server, then the dashboard is built from that job only"
       >
         <div className="upload-grid">
           <ol className="upload-stepper" aria-label="Upload steps">
@@ -195,12 +201,17 @@ export function UploadPage({ onDataLoaded }: { onDataLoaded: (d: DashboardData) 
           </ol>
 
           <div className="upload-validation-chips">
-            <StatusBadge tone={etm ? 'up' : 'warn'}>{etm ? `ETM ok · ${etm.name}` : 'ETM missing'}</StatusBadge>
+            <StatusBadge tone={etmFiles.length ? 'up' : 'warn'}>
+              {etmFiles.length ? `ETM ok · ${etmFiles.length} file(s)` : 'ETM missing'}
+            </StatusBadge>
             <StatusBadge tone={supporting ? 'up' : 'warn'}>
               {supporting ? `Supporting ok · ${supporting.name}` : 'Supporting missing'}
             </StatusBadge>
             <StatusBadge tone={stopsFiles.length > 0 ? 'up' : 'warn'}>
               {stopsFiles.length > 0 ? `Stops ok · ${stopsFiles.length} file(s)` : 'Stops missing'}
+            </StatusBadge>
+            <StatusBadge tone={distance ? 'up' : 'neutral'}>
+              {distance ? `Distance ok · ${distance.name}` : 'Distance optional (Stage Km)'}
             </StatusBadge>
             {error && <StatusBadge tone="down">Validation error</StatusBadge>}
             {ready && status === 'idle' && <StatusBadge tone="up">Ready to process</StatusBadge>}
@@ -216,67 +227,94 @@ export function UploadPage({ onDataLoaded }: { onDataLoaded: (d: DashboardData) 
             </div>
           )}
 
-          {/* Bulk drop zone */}
           <div
             className={`dropzone ${drag ? 'active' : ''}`}
             onDragOver={e => { e.preventDefault(); setDrag(true) }}
             onDragLeave={() => setDrag(false)}
             onDrop={e => { e.preventDefault(); setDrag(false); handleBulkDrop(e.dataTransfer.files) }}
           >
-            <div className="dropzone-label">Drop all Excel files here</div>
+            <div className="dropzone-label">Drop ETM / Conductor / Supporting / Stops / Distance files here</div>
             <div className="dropzone-hint">
-              Auto-classified by name: <code>ETM_*</code>, <code>Supporting*</code>, <code>StopsSeq*</code> / route files like <code>1-2.xlsx</code>
+              Accepts <code>.xlsx</code> and <code>.csv</code>. Multiple weekly Conductor Reports are combined and deduped automatically.
             </div>
-            <input type="file" accept=".xlsx,.xls" multiple onChange={e => handleBulkDrop(e.target.files)} />
+            <input type="file" accept=".xlsx,.xls,.csv" multiple onChange={e => handleBulkDrop(e.target.files)} />
           </div>
 
-          {/* Attached files summary */}
-          {(etm || supporting || stopsFiles.length > 0) && (
+          {(etmFiles.length > 0 || supporting || stopsFiles.length > 0 || distance) && (
             <div className="file-tags">
-              {etm && <span className="file-tag">ETM: {etm.name} ({fmtBytes(etm.size)}) <button onClick={() => setEtm(null)}>×</button></span>}
-              {supporting && <span className="file-tag">Support: {supporting.name} ({fmtBytes(supporting.size)}) <button onClick={() => setSupporting(null)}>×</button></span>}
-              {stopsFiles.map(f => (
+              {etmFiles.map((f) => (
                 <span key={f.name + f.size} className="file-tag">
-                  Stops: {f.name} <button onClick={() => setStopsFiles(p => p.filter(x => !(x.name === f.name && x.size === f.size)))}>×</button>
+                  ETM: {f.name} ({fmtBytes(f.size)}){' '}
+                  <button type="button" onClick={() => setEtmFiles((p) => p.filter((x) => !(x.name === f.name && x.size === f.size)))}>×</button>
+                </span>
+              ))}
+              {supporting && (
+                <span className="file-tag">
+                  Support: {supporting.name} ({fmtBytes(supporting.size)}){' '}
+                  <button type="button" onClick={() => setSupporting(null)}>×</button>
+                </span>
+              )}
+              {distance && (
+                <span className="file-tag">
+                  Distance: {distance.name} ({fmtBytes(distance.size)}){' '}
+                  <button type="button" onClick={() => setDistance(null)}>×</button>
+                </span>
+              )}
+              {stopsFiles.map((f) => (
+                <span key={f.name + f.size} className="file-tag">
+                  Stops: {f.name}{' '}
+                  <button type="button" onClick={() => setStopsFiles((p) => p.filter((x) => !(x.name === f.name && x.size === f.size)))}>×</button>
                 </span>
               ))}
             </div>
           )}
 
-          {/* Per-slot individual drop zones (collapsible) */}
           <details className="slot-details">
-            <summary className="slot-summary">Individual file slots (if auto-classify fails)</summary>
+            <summary className="slot-summary">Individual file slots</summary>
             <div className="slot-grid">
               <div
-                className={`dropzone slot-zone ${!etm ? '' : 'slot-filled'}`}
+                className={`dropzone slot-zone ${etmFiles.length ? 'slot-filled' : ''}`}
                 onDragOver={e => e.preventDefault()}
                 onDrop={e => { e.preventDefault(); handleSlotDrop('etm', e.dataTransfer.files) }}
               >
                 <div className="slot-zone-header">
-                  <span className="slot-label">ETM file</span>
-                  {etm && <button className="link-btn" onClick={() => setEtm(null)}>Remove</button>}
+                  <span className="slot-label">ETM / Conductor Report (multi)</span>
+                  {etmFiles.length > 0 && <button type="button" className="link-btn" onClick={() => setEtmFiles([])}>Clear</button>}
                 </div>
-                {etm
-                  ? <span className="slot-filename">{etm.name} ({fmtBytes(etm.size)})</span>
-                  : <span className="dropzone-hint">Drop ETM*.xlsx here or click to browse</span>
-                }
-                <input type="file" accept=".xlsx,.xls" onChange={e => handleSlotDrop('etm', e.target.files)} />
+                {etmFiles.length > 0
+                  ? <ul className="slot-file-list">{etmFiles.map(f => <li key={f.name + f.size}>{f.name}</li>)}</ul>
+                  : <span className="dropzone-hint">CSV or Excel ticket extracts</span>}
+                <input type="file" accept=".xlsx,.xls,.csv" multiple onChange={e => handleSlotDrop('etm', e.target.files)} />
               </div>
 
               <div
-                className={`dropzone slot-zone ${!supporting ? '' : 'slot-filled'}`}
+                className={`dropzone slot-zone ${supporting ? 'slot-filled' : ''}`}
                 onDragOver={e => e.preventDefault()}
                 onDrop={e => { e.preventDefault(); handleSlotDrop('supporting', e.dataTransfer.files) }}
               >
                 <div className="slot-zone-header">
-                  <span className="slot-label">Supporting file</span>
-                  {supporting && <button className="link-btn" onClick={() => setSupporting(null)}>Remove</button>}
+                  <span className="slot-label">Supporting workbook</span>
+                  {supporting && <button type="button" className="link-btn" onClick={() => setSupporting(null)}>Remove</button>}
                 </div>
                 {supporting
-                  ? <span className="slot-filename">{supporting.name} ({fmtBytes(supporting.size)})</span>
-                  : <span className="dropzone-hint">Drop Supporting*.xlsx here or click to browse</span>
-                }
+                  ? <span className="slot-filename">{supporting.name}</span>
+                  : <span className="dropzone-hint">StopsList / Route_Description / Veh_Type</span>}
                 <input type="file" accept=".xlsx,.xls" onChange={e => handleSlotDrop('supporting', e.target.files)} />
+              </div>
+
+              <div
+                className={`dropzone slot-zone ${distance ? 'slot-filled' : ''}`}
+                onDragOver={e => e.preventDefault()}
+                onDrop={e => { e.preventDefault(); handleSlotDrop('distance', e.dataTransfer.files) }}
+              >
+                <div className="slot-zone-header">
+                  <span className="slot-label">Stop–stop distance (optional)</span>
+                  {distance && <button type="button" className="link-btn" onClick={() => setDistance(null)}>Remove</button>}
+                </div>
+                {distance
+                  ? <span className="slot-filename">{distance.name}</span>
+                  : <span className="dropzone-hint">Enables Stage Km / LF / ATL</span>}
+                <input type="file" accept=".xlsx,.xls" onChange={e => handleSlotDrop('distance', e.target.files)} />
               </div>
 
               <div
@@ -286,28 +324,32 @@ export function UploadPage({ onDataLoaded }: { onDataLoaded: (d: DashboardData) 
               >
                 <div className="slot-zone-header">
                   <span className="slot-label">Stop sequence files</span>
-                  {stopsFiles.length > 0 && <button className="link-btn" onClick={() => setStopsFiles([])}>Clear</button>}
+                  {stopsFiles.length > 0 && <button type="button" className="link-btn" onClick={() => setStopsFiles([])}>Clear</button>}
                 </div>
                 {stopsFiles.length > 0
-                  ? <ul className="slot-file-list">{stopsFiles.map(f => <li key={f.name + f.size}>{f.name} ({fmtBytes(f.size)})</li>)}</ul>
-                  : <span className="dropzone-hint">Drop route files (e.g. 1-2.xlsx) here — multiple allowed</span>
-                }
+                  ? <ul className="slot-file-list">{stopsFiles.map(f => <li key={f.name + f.size}>{f.name}</li>)}</ul>
+                  : <span className="dropzone-hint">Daily StopsSeq Excel files</span>}
                 <input type="file" accept=".xlsx,.xls" multiple onChange={e => handleSlotDrop('stops', e.target.files)} />
               </div>
             </div>
           </details>
 
-          {/* Actions */}
           <div className="upload-actions">
             <Button variant="primary" onClick={submit} disabled={status === 'running' || status === 'queued'}>
-              {status === 'running' || status === 'queued' ? 'Processing…' : 'Process files'}
+              {status === 'running' || status === 'queued' ? 'Processing…' : 'Compile & build dashboard'}
             </Button>
             <div className="job-status">
               <span className={`status-dot ${status}`} />
               <span>{status}</span>
             </div>
-            {(etm || supporting || stopsFiles.length > 0) && (
-              <button className="link-btn" onClick={() => { setEtm(null); setSupporting(null); setStopsFiles([]); setError(null) }}>
+            {(etmFiles.length > 0 || supporting || stopsFiles.length > 0 || distance) && (
+              <button
+                type="button"
+                className="link-btn"
+                onClick={() => {
+                  setEtmFiles([]); setSupporting(null); setStopsFiles([]); setDistance(null); setError(null)
+                }}
+              >
                 Clear all
               </button>
             )}

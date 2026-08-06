@@ -86,7 +86,7 @@ def _bin_histogram(series: pd.Series, *, metric: str, bins: int = 20) -> list[di
     return rows
 
 
-def main(agency_id: str = "bhavnagar") -> None:
+def main(agency_id: str = "bhavnagar", out_path: Path | None = None) -> None:
     root = ROOT
     agency_id = agency_id.strip().lower()
     canon = root / "data" / "canonical" / agency_id
@@ -439,9 +439,12 @@ def main(agency_id: str = "bhavnagar") -> None:
             "Trim slot_summary/vehicle_summary or add slice API endpoints."
         )
 
-    out_file = out_dir / f"{agency_id}-dashboard.json"
+    out_file = Path(out_path) if out_path else (out_dir / f"{agency_id}-dashboard.json")
+    out_file.parent.mkdir(parents=True, exist_ok=True)
     out_file.write_text(text, encoding="utf-8")
-    if agency_id == "bhavnagar":
+    # Only refresh the static public copy when exporting in-place (dev). Job
+    # exports pass --out so concurrent uploads do not leak into the portal shell.
+    if out_path is None and agency_id == "bhavnagar":
         (out_dir / "bhavnagar-dashboard.json").write_text(text, encoding="utf-8")
     print(f"Wrote {out_file} ({size / 1e6:.2f} MB, schema_version=2)")
 
@@ -449,5 +452,10 @@ def main(agency_id: str = "bhavnagar") -> None:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Export Phase 3 dashboard JSON")
     parser.add_argument("--agency-id", default="bhavnagar")
+    parser.add_argument(
+        "--out",
+        default=None,
+        help="Optional output JSON path (defaults to webapp/public/data/{agency}-dashboard.json)",
+    )
     args = parser.parse_args()
-    main(agency_id=args.agency_id)
+    main(agency_id=args.agency_id, out_path=Path(args.out) if args.out else None)
