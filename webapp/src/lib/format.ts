@@ -90,4 +90,16 @@ export function fmtDateShort(iso: string): string {
   return `${d.getDate()} ${d.toLocaleString('en-IN', { month: 'short' })}`
 }
 
+/** "2026-04-12" -> "Sunday" using the calendar date, not the local timezone. */
+export function fmtWeekday(iso: string): string {
+  const d = new Date(`${iso}T12:00:00`)
+  if (Number.isNaN(d.getTime())) return iso
+  return d.toLocaleString('en-IN', { weekday: 'long' })
+}
+
+/** "2026-04-12" -> "Sunday, 12 Apr". */
+export function fmtDateWithWeekday(iso: string): string {
+  return `${fmtWeekday(iso)}, ${fmtDateShort(iso)}`
+}
+
 export { EM_DASH, RUPEE }

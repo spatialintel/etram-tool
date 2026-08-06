@@ -25,7 +25,7 @@ import {
 import { aggregateDaily, aggregateRoutes, periodTotals } from '../lib/aggregate'
 import { applyFilters, splitByComparison } from '../lib/filters'
 import type { FilterState } from '../lib/filters'
-import { fmtDelta, fmtInt, fmtMoney, fmtPct } from '../lib/format'
+import { fmtDateShort, fmtDelta, fmtInt, fmtMoney, fmtPct, fmtWeekday } from '../lib/format'
 import { usePrefs } from '../lib/prefs'
 import type { DashboardData, KpiDailyRow, Page } from '../types'
 import { getDefinition } from '../lib/definitions'
@@ -641,14 +641,22 @@ export function OverviewPage({
         ]}
         note={
           dayTypeSplit.weekendDays > 0 && dayTypeSplit.weekdayAvg > 0
-            ? `Weekend demand runs at ${fmtPct(dayTypeSplit.weekendAvg / dayTypeSplit.weekdayAvg)} of a weekday. Use this ratio when setting weekend headways.`
-            : 'No weekend days in the selected window.'
+            ? [
+                `Weekend demand runs at ${fmtPct(dayTypeSplit.weekendAvg / dayTypeSplit.weekdayAvg)} of a weekday. Use this ratio when setting weekend headways.`,
+                rankedDays.length > 0
+                  ? `Busiest day: ${fmtWeekday(rankedDays[0].service_date)} ${fmtDateShort(rankedDays[0].service_date)} (${fmtInt(rankedDays[0].ridership)} passengers). Quietest day: ${fmtWeekday(rankedDays[rankedDays.length - 1].service_date)} ${fmtDateShort(rankedDays[rankedDays.length - 1].service_date)} (${fmtInt(rankedDays[rankedDays.length - 1].ridership)} passengers).`
+                  : null,
+              ].filter(Boolean).join(' ')
+            : rankedDays.length > 0
+              ? `Busiest day: ${fmtWeekday(rankedDays[0].service_date)} ${fmtDateShort(rankedDays[0].service_date)}. Quietest day: ${fmtWeekday(rankedDays[rankedDays.length - 1].service_date)} ${fmtDateShort(rankedDays[rankedDays.length - 1].service_date)}.`
+              : 'No weekend days in the selected window.'
         }
       >
         <BreakdownTable
           caption="Busiest days"
           columns={[
             { key: 'date', label: 'Date' },
+            { key: 'day', label: 'Day' },
             { key: 'ridership', label: 'Passengers', align: 'right' },
             { key: 'revenue', label: 'Revenue', align: 'right' },
             { key: 'trips', label: 'Trips', align: 'right' },
@@ -656,6 +664,7 @@ export function OverviewPage({
           rows={rankedDays.slice(0, 5).map((d) => ({
             __key: d.service_date,
             date: d.service_date,
+            day: fmtWeekday(d.service_date),
             ridership: fmtInt(d.ridership),
             revenue: fmtMoney(d.revenue, { compact: d.revenue >= 1e5 }),
             trips: fmtInt(d.trips),
@@ -665,6 +674,7 @@ export function OverviewPage({
           caption="Quietest days"
           columns={[
             { key: 'date', label: 'Date' },
+            { key: 'day', label: 'Day' },
             { key: 'ridership', label: 'Passengers', align: 'right' },
             { key: 'revenue', label: 'Revenue', align: 'right' },
             { key: 'trips', label: 'Trips', align: 'right' },
@@ -672,6 +682,7 @@ export function OverviewPage({
           rows={rankedDays.slice(-5).reverse().map((d) => ({
             __key: d.service_date,
             date: d.service_date,
+            day: fmtWeekday(d.service_date),
             ridership: fmtInt(d.ridership),
             revenue: fmtMoney(d.revenue, { compact: d.revenue >= 1e5 }),
             trips: fmtInt(d.trips),
