@@ -436,12 +436,12 @@ export function EfficiencyPage({ data, filters }: { data: DashboardData; filters
         <StatCard
           label="Trips per bus"
           value={totals.tripsPerBus.toFixed(1)}
-          sub="Daily trips delivered by each bus"
+          sub="Daily scheduled trips delivered by each bus"
           definitionKey="trips_per_bus"
           target={{
             value: prefs.targets.tripsPerBus,
             current: totals.tripsPerBus,
-            label: `Target ${prefs.targets.tripsPerBus}`,
+            label: `Target ${prefs.targets.tripsPerBus} daily trips/bus`,
           }}
           spark={kpiSeries.trips_per_bus.filter((v): v is number => v != null)}
         />

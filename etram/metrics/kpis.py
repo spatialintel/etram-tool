@@ -103,10 +103,10 @@ def kpi_headway_mins(trip_summary: pd.DataFrame) -> float | None:
     if t1.empty or t2.empty:
         return None
     span_min = (t2.max() - t1.min()).total_seconds() / 60.0
-    n_rows = len(trip_summary)
-    if n_rows == 0:
+    n_departures = len(trip_summary)
+    if n_departures < 2:
         return None
-    return float(span_min / n_rows)
+    return float(span_min / (n_departures - 1))
 
 
 def summarize_kpis(

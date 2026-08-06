@@ -55,7 +55,9 @@ function slotSortKey(label: string): number {
 function headwayFrom(hours: number[], trips: number, days: number): number | null {
   if (hours.length < 2 || trips <= 0 || days <= 0) return null
   const span = (Math.max(...hours) - Math.min(...hours)) * 60
-  return Math.round(span / (trips / days))
+  const departuresPerDay = trips / days
+  if (departuresPerDay < 2) return null
+  return Math.round(span / (departuresPerDay - 1))
 }
 
 export function TemporalPage({

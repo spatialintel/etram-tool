@@ -13,21 +13,28 @@ type DefRow = {
 }
 
 const SOURCE_HINT: Partial<Record<DefinitionKey, string>> = {
-  ridership: 'route_day_summary / tickets',
-  revenue: 'route_day_summary / tickets',
+  ridership: 'route_day_summary / ETM tickets',
+  revenue: 'route_day_summary / ETM tickets',
   lf: 'pax_km & capacity_km (route_day or trip)',
   atl: 'pax_km / ridership',
+  ppt: 'ridership / n_trips',
+  pax_per_bus: 'ridership / n_buses',
   fare_yield: 'revenue / ridership',
+  rev_per_passenger: 'revenue / ridership',
   epkm: 'kpi_daily (Python summarize_kpis)',
   epb: 'kpi_daily (Python summarize_kpis)',
+  rev_per_trip: 'revenue / trips',
+  trips: 'route_day_summary n_trips',
   trips_per_bus: 'n_trips / n_buses',
   headway: 'kpi_daily / temporal estimate',
   vehicle_km: 'kpi_daily (Python summarize_kpis)',
+  vehicle_utilization: 'vehicle_km / n_buses (kpi_daily)',
   pax_km: 'route_day_summary',
   peak_load: 'ba_stop_trip passenger_load max',
   boarding: 'ba_stop_trip',
   alighting: 'ba_stop_trip',
-  rev_per_trip: 'revenue / trips',
+  cost_recovery: 'Requires operating cost feed (not in current export)',
+  on_time_performance: 'Requires GPS or schedule feed (not in current export)',
 }
 
 export function DefinitionsPage() {

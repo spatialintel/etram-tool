@@ -131,11 +131,23 @@ export function OverviewPage({
     const epkm = isV2 ? meanKpi(kpiInRange, 'EPKM') : null
     const epb = isV2 ? meanKpi(kpiInRange, 'EPB') : null
     const headway = isV2 ? meanKpi(kpiInRange, 'headway_mins') : null
+    const vehicleUtil = isV2 ? meanKpi(kpiInRange, 'vehicle_km_per_bus') : null
+    const busDays = totals.tripsPerBus > 0 ? totals.trips / totals.tripsPerBus : 0
     return [
       {
         key: 'atl',
         label: 'Average trip length (ATL)',
         value: `${totals.atl.toFixed(2)} km`,
+      },
+      {
+        key: 'ppt',
+        label: 'Passengers per trip (PPT)',
+        value: totals.trips > 0 ? (totals.ridership / totals.trips).toFixed(1) : '\u2014',
+      },
+      {
+        key: 'pax_per_bus',
+        label: 'Passengers per bus',
+        value: busDays > 0 ? fmtInt(Math.round(totals.ridership / busDays)) : '\u2014',
       },
       { key: 'fare_yield', label: 'Fare yield per passenger', value: fmtMoney(totals.fareYield, { dp: 2 }) },
       {
@@ -157,6 +169,11 @@ export function OverviewPage({
         key: 'headway',
         label: 'Average headway',
         value: fmtOrDash(headway, (v) => `${v.toFixed(1)} min`),
+      },
+      {
+        key: 'vehicle_utilization',
+        label: 'Vehicle utilization',
+        value: fmtOrDash(vehicleUtil, (v) => `${fmtInt(Math.round(v))} km/bus`),
       },
     ]
   }, [totals, isV2, kpiInRange])
@@ -422,7 +439,7 @@ export function OverviewPage({
           value={fmtInt(totals.trips)}
           sub={`${fmtInt(Math.round(totals.busesPerDay))} buses/day \u00B7 ${totals.tripsPerBus.toFixed(1)} trips per bus`}
           trend={trendOf(totals.trips, prevTotals?.trips)}
-          definitionKey="trips_per_bus"
+          definitionKey="trips"
           spark={series.map((b) => b.trips)}
           onClick={() => setDrill('trips')}
           drillLabel="Route service"
