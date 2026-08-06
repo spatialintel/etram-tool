@@ -88,3 +88,10 @@ transforms:
   stop_origin_key: "{origin_stop_no}-{origin_abbr}"
   stop_destination_key: "{destination_stop_no}-{destination_abbr}"
   stop_abbr_key: "{stop_no}-{stop_abbr}"
+
+kml_route_lengths:
+  path: Input files/RAHUL MAP.kml
+  route_code_aliases:
+    R4E: R4Z
+  description_code_overrides:
+    avaniya: R6E

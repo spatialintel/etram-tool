@@ -1,8 +1,11 @@
 ﻿"""Excel → canonical Parquet ingest."""
 from __future__ import annotations
 
+import math
+import re
 from pathlib import Path
 from typing import Any
+import xml.etree.ElementTree as ET
 
 import pandas as pd
 import yaml
@@ -38,6 +41,58 @@ def _clean_str(s: pd.Series) -> pd.Series:
     return s.astype("string")
 
 
+def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    # Mean Earth radius in km (WGS84 authalic radius).
+    r = 6371.0088
+    p1 = math.radians(lat1)
+    p2 = math.radians(lat2)
+    dphi = math.radians(lat2 - lat1)
+    dlambda = math.radians(lon2 - lon1)
+    a = (
+        math.sin(dphi / 2) ** 2
+        + math.cos(p1) * math.cos(p2) * math.sin(dlambda / 2) ** 2
+    )
+    return 2 * r * math.asin(math.sqrt(a))
+
+
+def _linestring_length_km(coord_text: str) -> float:
+    points: list[tuple[float, float]] = []
+    for token in coord_text.replace("\n", " ").split():
+        parts = token.split(",")
+        if len(parts) < 2:
+            continue
+        lon = float(parts[0])
+        lat = float(parts[1])
+        points.append((lat, lon))
+    if len(points) < 2:
+        return 0.0
+    return sum(
+        _haversine_km(lat1, lon1, lat2, lon2)
+        for (lat1, lon1), (lat2, lon2) in zip(points, points[1:])
+    )
+
+
+def _kml_route_lengths(path: Path) -> dict[str, float]:
+    """Extract route lengths from KML LineString placemarks as {Rxx: km}."""
+    ns = {"k": "http://www.opengis.net/kml/2.2"}
+    root = ET.parse(path).getroot()
+    out: dict[str, float] = {}
+    for pm in root.findall(".//k:Placemark", ns):
+        linestring = pm.find(".//k:LineString", ns)
+        if linestring is None:
+            continue
+        name = (pm.findtext("k:name", default="", namespaces=ns) or "").strip()
+        m = re.search(r"(?:ROUTE\s*NO\.?|ROUTE)\s*(\d+[A-Z]?)", name, re.IGNORECASE)
+        if not m:
+            continue
+        route_code = f"R{m.group(1).upper()}"
+        coords = linestring.findtext("k:coordinates", default="", namespaces=ns)
+        if not coords:
+            continue
+        out[route_code] = _linestring_length_km(coords)
+    return out
+
+
 def load_stops(cfg: dict, root: Path) -> pd.DataFrame:
     src = cfg["sources"]["supporting"]
     path = _resolve(root, src["path"])
@@ -67,6 +122,28 @@ def load_routes(cfg: dict, root: Path) -> pd.DataFrame:
     df["route_name"] = _clean_str(df["route_name"])
     df["route_description"] = _clean_str(df["route_description"])
     df["route_category"] = _clean_str(df["route_category"])
+    kml_cfg = cfg.get("kml_route_lengths") or {}
+    if kml_cfg.get("path"):
+        kml_path = _resolve(root, kml_cfg["path"])
+        if kml_path.exists():
+            km_by_code = _kml_route_lengths(kml_path)
+            aliases = {
+                str(k).strip().upper(): str(v).strip().upper()
+                for k, v in (kml_cfg.get("route_code_aliases") or {}).items()
+            }
+            desc_overrides = [
+                (str(key).strip().lower(), str(val).strip().upper())
+                for key, val in (kml_cfg.get("description_code_overrides") or {}).items()
+            ]
+            route_codes = df["route_code"].astype(str).str.strip().str.upper()
+            route_desc = df["route_description"].fillna("").astype(str).str.lower()
+            kml_codes = route_codes.map(lambda c: aliases.get(c, c))
+            for needle, code in desc_overrides:
+                if not needle:
+                    continue
+                kml_codes = kml_codes.where(~route_desc.str.contains(needle), code)
+            kml_lengths = kml_codes.map(km_by_code)
+            df["route_length_km"] = kml_lengths.where(kml_lengths.notna(), df["route_length_km"])
     df["route_direction_key"] = (
         df["route_code"].astype(str) + "-" + df["route_description"].astype(str)
     )
