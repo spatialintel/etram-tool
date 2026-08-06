@@ -1,9 +1,27 @@
 ﻿"""Column transforms shared by agency ingest."""
 from __future__ import annotations
 
+import re
 from datetime import datetime, time, timedelta
 
 import pandas as pd
+
+
+def normalize_route_description(description: str | None) -> str:
+    """Collapse ETM vs supporting-sheet wording so direction keys align."""
+    if description is None or (isinstance(description, float) and pd.isna(description)):
+        return ""
+    s = str(description).lower().strip()
+    s = re.sub(r"\([^)]*\)", "", s)
+    s = s.replace(" to ", " ").replace("_to_", "_").replace("to_", "")
+    s = re.sub(r"\s+", " ", s)
+    return s.replace(" ", "")
+
+
+def route_direction_key(route_code: str | None, route_description: str | None) -> str:
+    code = "" if route_code is None else str(route_code).strip()
+    desc = normalize_route_description(route_description)
+    return f"{code}-{desc}" if desc else code
 
 
 def _blank_to_na(s: pd.Series) -> pd.Series:

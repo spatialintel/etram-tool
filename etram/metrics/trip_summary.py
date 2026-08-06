@@ -50,6 +50,16 @@ def build_trip_summary(
 
     rt = routes[["agency_id", "route_direction_key", "route_length_km"]].drop_duplicates()
     agg = agg.merge(rt, on=["agency_id", "route_direction_key"], how="left")
+    # ETM and supporting sheets sometimes label the same direction differently.
+    rt_code = (
+        routes.groupby(["agency_id", "route_code"], dropna=False)["route_length_km"]
+        .mean()
+        .reset_index()
+        .rename(columns={"route_length_km": "route_length_km_fallback"})
+    )
+    agg = agg.merge(rt_code, on=["agency_id", "route_code"], how="left")
+    agg["route_length_km"] = agg["route_length_km"].fillna(agg["route_length_km_fallback"])
+    agg = agg.drop(columns=["route_length_km_fallback"])
 
     agg["capacity_km"] = agg["route_length_km"].astype(float) * agg["veh_capacity"].astype(float)
     agg["timeslot_1"] = _floor_30min(agg["trip_start_time"])

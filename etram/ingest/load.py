@@ -11,7 +11,13 @@ import pandas as pd
 import yaml
 
 from etram.ingest.dq import build_dq_report, write_dq_report
-from etram.ingest.transforms import fill_down_trip_times, make_time_slots, coerce_time, _blank_to_na
+from etram.ingest.transforms import (
+    fill_down_trip_times,
+    make_time_slots,
+    coerce_time,
+    route_direction_key,
+    _blank_to_na,
+)
 
 
 def load_mapping(path: Path) -> dict[str, Any]:
@@ -144,8 +150,9 @@ def load_routes(cfg: dict, root: Path) -> pd.DataFrame:
                 kml_codes = kml_codes.where(~route_desc.str.contains(needle), code)
             kml_lengths = kml_codes.map(km_by_code)
             df["route_length_km"] = kml_lengths.where(kml_lengths.notna(), df["route_length_km"])
-    df["route_direction_key"] = (
-        df["route_code"].astype(str) + "-" + df["route_description"].astype(str)
+    df["route_direction_key"] = df.apply(
+        lambda r: route_direction_key(r["route_code"], r["route_description"]),
+        axis=1,
     )
     return df.reset_index(drop=True)
 
@@ -217,8 +224,9 @@ def load_tickets(cfg: dict, root: Path) -> pd.DataFrame:
     df["pax_km"] = df["total_passengers"].astype(float) * df["stage_km"]
 
     df["bus_trip_key"] = df["vehicle_id"].astype(str) + "-" + df["trip_no"].astype(str)
-    df["route_direction_key"] = (
-        df["route_code"].astype(str) + "-" + df["route_description"].astype(str)
+    df["route_direction_key"] = df.apply(
+        lambda r: route_direction_key(r["route_code"], r["route_description"]),
+        axis=1,
     )
     df["stop_origin_key"] = (
         df["origin_stop_no"].astype(str) + "-" + df["origin_abbr"].astype(str)
@@ -268,8 +276,9 @@ def load_stop_sequence(cfg: dict, root: Path) -> pd.DataFrame:
     # Also keep a global-ish index compatible with joins later; BA uses Index from PQ merge
     # For Phase 1 we store both stop_no order and a dense seq_index per route-date.
     df["stop_abbr_key"] = df["stop_no"].astype(str) + "-" + df["stop_abbr"].astype(str)
-    df["route_direction_key"] = (
-        df["route_code"].astype(str) + "-" + df["route_description"].astype(str)
+    df["route_direction_key"] = df.apply(
+        lambda r: route_direction_key(r["route_code"], r["route_description"]),
+        axis=1,
     )
     df = df.drop(columns=["_source_file"])
     # Later calendar-day files may still carry earlier dates — keep one stop chain
