@@ -116,7 +116,7 @@ def load_stops(cfg: dict, root: Path) -> pd.DataFrame:
 
 def load_routes(cfg: dict, root: Path) -> pd.DataFrame:
     src = cfg["sources"]["supporting"]
-    path = _resolve(root, src["path"])
+    path = _resolve(root, src.get("routes_path") or src["path"])
     raw = pd.read_excel(path, sheet_name=src["sheets"]["routes"])
     # drop fully empty unnamed cols
     raw = raw.loc[:, ~raw.columns.astype(str).str.startswith("Unnamed")]
@@ -159,7 +159,7 @@ def load_routes(cfg: dict, root: Path) -> pd.DataFrame:
 
 def load_vehicles(cfg: dict, root: Path) -> pd.DataFrame:
     src = cfg["sources"]["supporting"]
-    path = _resolve(root, src["path"])
+    path = _resolve(root, src.get("vehicles_path") or src["path"])
     raw = pd.read_excel(path, sheet_name=src["sheets"]["vehicles"])
     df = _rename(raw, cfg["vehicles"])
     df["vehicle_id"] = _clean_str(df["vehicle_id"])
@@ -175,7 +175,10 @@ def load_vehicles(cfg: dict, root: Path) -> pd.DataFrame:
 def load_tickets(cfg: dict, root: Path) -> pd.DataFrame:
     src = cfg["sources"]["etm"]
     path = _resolve(root, src["path"])
-    raw = pd.read_excel(path, sheet_name=src["sheet"])
+    if path.suffix.lower() == ".csv":
+        raw = pd.read_csv(path, low_memory=False)
+    else:
+        raw = pd.read_excel(path, sheet_name=src["sheet"])
     df = _rename(raw, cfg["tickets"])
     df["agency_id"] = cfg["agency_id"]
 

@@ -279,6 +279,10 @@ async def create_job(
         _safe_filename(f.filename, f"stops-{i:02d}.xlsx") for i, f in enumerate(stop_sequence_files)
     ]
 
+    # Upload contract (May+ Conductor Reports): when multiple weekly ETM CSVs
+    # are provided, concatenate them, drop duplicate tickets, and fill blank
+    # Route Number from Route Description via etram.ingest.route_map before
+    # Phase 1 ingest. See Input files/May Data/UPLOAD_PIPELINE_NOTES.md.
     job_id = uuid.uuid4().hex
     now = _utc_now()
     with JOBS_LOCK:

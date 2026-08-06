@@ -84,7 +84,9 @@ def kpi_trips_per_bus(route_day: pd.DataFrame) -> float | None:
 
 
 def kpi_vehicle_km(route_day: pd.DataFrame) -> float | None:
-    return float(route_day["route_length_route"].sum() * route_day["n_trips"].sum())
+    if route_day.empty:
+        return None
+    return float((route_day["route_length_route"].astype(float) * route_day["n_trips"].astype(float)).sum())
 
 
 def kpi_vehicle_km_per_bus(route_day: pd.DataFrame) -> float | None:

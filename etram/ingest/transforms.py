@@ -14,8 +14,12 @@ def normalize_route_description(description: str | None) -> str:
     s = str(description).lower().strip()
     s = re.sub(r"\([^)]*\)", "", s)
     s = s.replace(" to ", " ").replace("_to_", "_").replace("to_", "")
+    # Strip Route/R number prefix while separators still exist (avoid eating stop names).
+    s = re.sub(r"^(?:route|r)[_\s]*0*\d+\s*", "", s)
+    s = re.sub(r"^[_\s]+", "", s)
     s = re.sub(r"\s+", " ", s)
-    return s.replace(" ", "")
+    s = s.replace(" ", "").replace("adhewada", "adhevada")
+    return s
 
 
 def route_direction_key(route_code: str | None, route_description: str | None) -> str:

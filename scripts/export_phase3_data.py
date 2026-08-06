@@ -387,7 +387,16 @@ def main(agency_id: str = "bhavnagar") -> None:
             "date_min": str(daily["service_date"].min()),
             "date_max": str(daily["service_date"].max()),
             "routes": sorted(route_day["route_code"].dropna().unique().tolist()),
-            "route_directions": sorted(ba["route_direction_key"].dropna().unique().tolist()),
+            "route_directions": sorted(
+                (
+                    ba["route_direction_key"]
+                    if len(ba) and "route_direction_key" in ba.columns
+                    else trip["route_direction_key"]
+                )
+                .dropna()
+                .unique()
+                .tolist()
+            ),
         },
         "meta": {
             "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),

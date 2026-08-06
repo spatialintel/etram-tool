@@ -7,19 +7,27 @@ timezone: Asia/Kolkata
 sources:
   etm:
     type: excel_folder_or_file
-    path: Input files/ETM Data/ETM_Bhavnagar_Apr - Edited.xlsx
+    # May 2026 Conductor Report → April-schema CSV with Stage Km
+    # (see scripts/build_may_etm_for_ingest.py)
+    path: Input files/May Data/ETM_Bhavnagar_May_2026_ingest.csv
     sheet: Bus Ticket Data
     header_row: 1
   supporting:
     type: excel_workbook
-    path: Input files/Supporting data.xlsx
+    # Stops: HOD abbrs align with the distance matrix used for Stage Km.
+    path: Input files/May Data/Supporting data by HOD.xlsx
+    # Routes: agency Route_Description uses ETM-style codes (R1, R4E…);
+    # HOD sheet uses R01/R04E and does not join to May tickets.
+    routes_path: Input files/May Data/Supporting data.xlsx
     sheets:
       stops: StopsList
       routes: Route_Description
       vehicles: Veh_Type
   stop_sequence:
     type: excel_folder
-    path: Input files/Stops sequence
+    # May stop-sequence extracts not provided; April files keep BA schema alive
+    # (dates will WARN as ticket_dates_missing_sequence).
+    path: Input files/April Data/Stops sequence
     sheet: StopsSeq
     file_glob: "*.xlsx"
 
@@ -90,7 +98,7 @@ transforms:
   stop_abbr_key: "{stop_no}-{stop_abbr}"
 
 kml_route_lengths:
-  path: Input files/RAHUL MAP.kml
+  path: Input files/May Data/RAHUL MAP.kml
   route_code_aliases:
     R4E: R4Z
   description_code_overrides:
