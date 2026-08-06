@@ -46,7 +46,7 @@ export function StopsPage({ data, filters }: { data: DashboardData; filters: Fil
   const [metric, setMetric] = useState<StopMetric>('peak_load')
   const [cluster, setCluster] = useState(true)
   const [heat, setHeat] = useState(false)
-  const [basemap, setBasemap] = useState<Basemap>('positron')
+  const [basemap, setBasemap] = useState<Basemap>('streets')
   const [fitToken, setFitToken] = useState(0)
   const [selected, setSelected] = useState<StopRow | null>(null)
   const [drill, setDrill] = useState<'load' | 'stops' | null>(null)
@@ -64,8 +64,8 @@ export function StopsPage({ data, filters }: { data: DashboardData; filters: Fil
 
   /**
    * Boarding and alighting is a separate feed from trip and revenue data and
-   * often lags it. Every chart here is built from those days only, so a range
-   * that reaches past the feed silently averages fewer days than the pill says.
+   * often lags it. Coverage is derived from whatever stop_map is in the loaded
+   * JSON, so another city's export with full stop coverage will not warn.
    */
   const coverage = useMemo(() => {
     const dates = [...new Set(data.stop_map.map((r) => r.service_date))].sort()
@@ -76,28 +76,53 @@ export function StopsPage({ data, filters }: { data: DashboardData; filters: Fil
       ? inRange.length
       : Math.round((end.getTime() - start.getTime()) / 86400000) + 1
     return {
+      dates,
       days: inRange.length,
       selectedDays,
-      first: inRange[0] ?? '',
-      last: inRange[inRange.length - 1] ?? '',
+      first: inRange[0] ?? dates[0] ?? '',
+      last: inRange[inRange.length - 1] ?? dates[dates.length - 1] ?? '',
+      availableFirst: dates[0] ?? '',
+      availableLast: dates[dates.length - 1] ?? '',
       gap: selectedDays - inRange.length,
     }
   }, [data.stop_map, filters.range])
 
-  const mapStops = useMemo(
-    () =>
-      stopRows.map((s) => ({
-        stop_abbr: s.stop_abbr,
-        stop_name: s.stop_name,
-        boarding: s.boarding,
-        alighting: s.alighting,
-        peak_load: s.peak_load,
-        latitude: s.latitude,
-        longitude: s.longitude,
-        route_direction_key: s.route_direction_key,
-      })),
-    [stopRows],
-  )
+  /**
+   * One circle per physical stop. The table keeps route-direction rows, but the
+   * map was plotting the same coordinates many times and looked empty under
+   * clustering when every point sat on top of another.
+   */
+  const mapStops = useMemo(() => {
+    const byAbbr = new Map<string, {
+      stop_abbr: string
+      stop_name: string
+      boarding: number
+      alighting: number
+      peak_load: number
+      latitude: number
+      longitude: number
+    }>()
+    for (const s of stopRows) {
+      if (!Number.isFinite(s.latitude) || !Number.isFinite(s.longitude)) continue
+      const e = byAbbr.get(s.stop_abbr)
+      if (!e) {
+        byAbbr.set(s.stop_abbr, {
+          stop_abbr: s.stop_abbr,
+          stop_name: s.stop_name,
+          boarding: s.boarding,
+          alighting: s.alighting,
+          peak_load: s.peak_load,
+          latitude: s.latitude,
+          longitude: s.longitude,
+        })
+      } else {
+        e.boarding += s.boarding
+        e.alighting += s.alighting
+        e.peak_load = Math.max(e.peak_load, s.peak_load)
+      }
+    }
+    return [...byAbbr.values()]
+  }, [stopRows])
 
   const polylines = useMemo(() => {
     if (!isV2 || !data.stop_sequence_geo?.length) return []
@@ -435,9 +460,9 @@ export function StopsPage({ data, filters }: { data: DashboardData; filters: Fil
             label="Basemap"
             value={basemap}
             options={[
-              { value: 'positron', label: 'Light' },
-              { value: 'dark', label: 'Dark' },
               { value: 'streets', label: 'Streets (OSM)' },
+              { value: 'positron', label: 'Light (vector)' },
+              { value: 'dark', label: 'Dark (vector)' },
               { value: 'none', label: 'No basemap' },
             ]}
             onChange={(v) => setBasemap(v as Basemap)}

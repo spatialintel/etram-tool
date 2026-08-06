@@ -77,6 +77,20 @@ function App() {
     [dateMin, dateMax],
   )
 
+  /**
+   * Stop boarding/alighting often covers fewer days than trips and revenue.
+   * On the Stops page the date picker is bounded to those days so the pill
+   * matches what the page can actually show. Other pages keep the agency span.
+   */
+  const stopDateExtent = useMemo(() => {
+    const dates = [...new Set((data?.stop_map ?? []).map((r) => r.service_date))].sort()
+    if (dates.length === 0) return null
+    return { start: dates[0], end: dates[dates.length - 1] }
+  }, [data?.stop_map])
+
+  const filterDateMin = page === 'stops' && stopDateExtent ? stopDateExtent.start : dateMin
+  const filterDateMax = page === 'stops' && stopDateExtent ? stopDateExtent.end : dateMax
+
   useEffect(() => {
     if (!fullRange) return
     const { start, end } = filters.range
@@ -84,6 +98,19 @@ function App() {
     const outOfBounds = !unset && (end < fullRange.start || start > fullRange.end)
     if (unset || outOfBounds) setFilters({ range: fullRange })
   }, [fullRange, filters.range, setFilters])
+
+  // When opening Stops, snap any overhanging selection onto the stop-data window
+  // so "30 days selected" cannot disagree with a 12-day boarding feed.
+  useEffect(() => {
+    if (page !== 'stops' || !stopDateExtent) return
+    const { start, end } = filters.range
+    if (!start || !end) return
+    const nextStart = start < stopDateExtent.start ? stopDateExtent.start : start > stopDateExtent.end ? stopDateExtent.start : start
+    const nextEnd = end > stopDateExtent.end ? stopDateExtent.end : end < stopDateExtent.start ? stopDateExtent.end : end
+    if (nextStart !== start || nextEnd !== end) {
+      setFilters({ range: { start: nextStart, end: nextEnd } })
+    }
+  }, [page, stopDateExtent, filters.range, setFilters])
 
   // The date picker already states the range and comparison, so those chips
   // would only repeat it a line lower.
@@ -154,9 +181,13 @@ function App() {
                 <DateRangePicker
                   value={pageFilters.range}
                   onChange={(range) => setFilters({ range })}
-                  min={data.agency.date_min}
-                  max={data.agency.date_max}
-                  availableDates={data.daily.map((d) => d.service_date)}
+                  min={filterDateMin ?? data.agency.date_min}
+                  max={filterDateMax ?? data.agency.date_max}
+                  availableDates={
+                    page === 'stops' && stopDateExtent
+                      ? [...new Set(data.stop_map.map((r) => r.service_date))].sort()
+                      : data.daily.map((d) => d.service_date)
+                  }
                   compare={pageFilters.compare}
                   onCompareChange={(compare) => setFilters({ compare })}
                   compareRange={pageFilters.compareRange}
