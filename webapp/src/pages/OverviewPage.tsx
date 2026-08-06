@@ -25,7 +25,7 @@ import {
 import { aggregateDaily, aggregateRoutes, periodTotals } from '../lib/aggregate'
 import { applyFilters, splitByComparison } from '../lib/filters'
 import type { FilterState } from '../lib/filters'
-import { fmtDateShort, fmtDelta, fmtInt, fmtMoney, fmtPct, fmtWeekday } from '../lib/format'
+import { fmtDateShort, fmtDateWithWeekday, fmtDelta, fmtInt, fmtMoney, fmtPct, fmtWeekday } from '../lib/format'
 import { usePrefs } from '../lib/prefs'
 import type { DashboardData, KpiDailyRow, Page } from '../types'
 import { getDefinition } from '../lib/definitions'
@@ -371,7 +371,7 @@ export function OverviewPage({
       {anomalies.length > 0 && (
         <Callout tone="warn" title="Unusual days (2+ standard deviations from the same weekday)">
           {anomalies
-            .map((a) => `${a.date}: ${a.z >= 0 ? '+' : ''}${a.z.toFixed(1)}σ (${fmtInt(a.ridership)} pax)`)
+            .map((a) => `${fmtDateWithWeekday(a.date)}: ${a.z >= 0 ? '+' : ''}${a.z.toFixed(1)}σ (${fmtInt(a.ridership)} pax)`)
             .join(' · ')}
         </Callout>
       )}
@@ -442,12 +442,26 @@ export function OverviewPage({
           title="Load factor (LF) against target"
           subtitle={
             lfSpread
-              ? `The bar is the period average and the green band is the daily range, ${fmtPct(lfSpread.min)} to ${fmtPct(lfSpread.max)}.`
+              ? `Daily range ${fmtPct(lfSpread.min)} to ${fmtPct(lfSpread.max)} across ${lfDays.rows.length} service days`
               : `Period average against the ${(lfTarget * 100).toFixed(0)}% target`
           }
           onDrill={() => setDrill('lf')}
         >
           <Chart option={lfBulletOpt} height={132} group="overview" />
+          <ul className="lf-bullet-key" aria-label="Chart legend">
+            <li>
+              <span className="lf-bullet-swatch lf-bullet-swatch--range" aria-hidden />
+              Daily range
+            </li>
+            <li>
+              <span className="lf-bullet-swatch lf-bullet-swatch--actual" aria-hidden />
+              Period average
+            </li>
+            <li>
+              <span className="lf-bullet-swatch lf-bullet-swatch--target" aria-hidden />
+              Target {(lfTarget * 100).toFixed(0)}%
+            </li>
+          </ul>
           <div className="overview-lf-facts">
             <ListRow
               title="Days at or above target"
@@ -462,12 +476,12 @@ export function OverviewPage({
               <>
                 <ListRow
                   title="Best day"
-                  meta={lfDays.rows[0].date}
+                  meta={fmtDateWithWeekday(lfDays.rows[0].date)}
                   badge={<StatusBadge tone="up">{fmtPct(lfDays.rows[0].lf)}</StatusBadge>}
                 />
                 <ListRow
                   title="Weakest day"
-                  meta={lfDays.rows[lfDays.rows.length - 1].date}
+                  meta={fmtDateWithWeekday(lfDays.rows[lfDays.rows.length - 1].date)}
                   badge={<StatusBadge tone="down">{fmtPct(lfDays.rows[lfDays.rows.length - 1].lf)}</StatusBadge>}
                 />
               </>
@@ -742,18 +756,25 @@ export function OverviewPage({
           },
           { label: 'Passenger-km', value: fmtInt(Math.round(totals.pax_km)) },
         ]}
-        note="Low load factor with high ridership points at oversupply on long sections rather than weak demand. Check the route quadrant on Route Performance before cutting trips."
+        note={[
+          'Low load factor with high ridership points at oversupply on long sections rather than weak demand. Check the route quadrant on Route Performance before cutting trips.',
+          lfDays.rows.length > 0
+            ? `Strongest day: ${fmtDateWithWeekday(lfDays.rows[0].date)} (${fmtPct(lfDays.rows[0].lf)}). Weakest day: ${fmtDateWithWeekday(lfDays.rows[lfDays.rows.length - 1].date)} (${fmtPct(lfDays.rows[lfDays.rows.length - 1].lf)}).`
+            : null,
+        ].filter(Boolean).join(' ')}
       >
         <BreakdownTable
           caption="Strongest days"
           columns={[
             { key: 'date', label: 'Date' },
+            { key: 'day', label: 'Day' },
             { key: 'lf', label: 'Load factor', align: 'right' },
             { key: 'ridership', label: 'Passengers', align: 'right' },
           ]}
           rows={lfDays.rows.slice(0, 5).map((r) => ({
             __key: r.date,
             date: r.date,
+            day: fmtWeekday(r.date),
             lf: fmtPct(r.lf),
             ridership: fmtInt(r.ridership),
           }))}
@@ -762,12 +783,14 @@ export function OverviewPage({
           caption="Weakest days"
           columns={[
             { key: 'date', label: 'Date' },
+            { key: 'day', label: 'Day' },
             { key: 'lf', label: 'Load factor', align: 'right' },
             { key: 'ridership', label: 'Passengers', align: 'right' },
           ]}
           rows={lfDays.rows.slice(-5).reverse().map((r) => ({
             __key: r.date,
             date: r.date,
+            day: fmtWeekday(r.date),
             lf: fmtPct(r.lf),
             ridership: fmtInt(r.ridership),
           }))}

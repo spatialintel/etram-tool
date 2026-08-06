@@ -12,7 +12,7 @@ import {
 } from '../components/ui'
 import { applyFilters } from '../lib/filters'
 import type { FilterState } from '../lib/filters'
-import { fmtDateShort, fmtInt, fmtKm, fmtMoney, fmtPct } from '../lib/format'
+import { fmtDateShort, fmtDateWithWeekday, fmtInt, fmtKm, fmtMoney, fmtPct } from '../lib/format'
 import type {
   CrewSummaryRow,
   DashboardData,
@@ -459,7 +459,7 @@ export function EntitiesPage({
                     <dt>Best day</dt>
                     <dd>
                       {fmtInt(Math.max(...selected.spark))} on{' '}
-                      {fmtDateShort(
+                      {fmtDateWithWeekday(
                         selected.sparkDates[selected.spark.indexOf(Math.max(...selected.spark))],
                       )}
                     </dd>
@@ -468,7 +468,7 @@ export function EntitiesPage({
                     <dt>Quietest day</dt>
                     <dd>
                       {fmtInt(Math.min(...selected.spark))} on{' '}
-                      {fmtDateShort(
+                      {fmtDateWithWeekday(
                         selected.sparkDates[selected.spark.indexOf(Math.min(...selected.spark))],
                       )}
                     </dd>

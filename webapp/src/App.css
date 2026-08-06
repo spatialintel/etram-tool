@@ -734,6 +734,47 @@ details[open] .slot-summary::before { transform: rotate(90deg); }
   padding-left: 0;
 }
 
+.lf-bullet-key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.lf-bullet-key li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.lf-bullet-swatch {
+  display: inline-block;
+  width: 14px;
+  height: 8px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.lf-bullet-swatch--range {
+  background: rgba(27, 122, 78, 0.2);
+  border: 1px solid rgba(27, 122, 78, 0.35);
+}
+
+.lf-bullet-swatch--actual {
+  background: #d97706;
+}
+
+.lf-bullet-swatch--target {
+  width: 2px;
+  height: 12px;
+  border-radius: 0;
+  background: #111827;
+}
+
 .overview-lf-facts {
   margin-top: 4px;
   border-top: 1px solid var(--border-subtle);

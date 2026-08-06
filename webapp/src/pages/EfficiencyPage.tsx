@@ -16,7 +16,7 @@ import { aggregateRoutes, periodTotals } from '../lib/aggregate'
 import type { RouteAgg } from '../lib/aggregate'
 import { applyFilters, splitByComparison } from '../lib/filters'
 import type { FilterState } from '../lib/filters'
-import { fmtDelta, fmtInt, fmtKm, fmtMoney, fmtPct } from '../lib/format'
+import { fmtDateWithWeekday, fmtDelta, fmtInt, fmtKm, fmtMoney, fmtPct } from '../lib/format'
 import { usePrefs } from '../lib/prefs'
 import type { DashboardData, KpiDailyRow, TripDistributionBin } from '../types'
 
@@ -466,14 +466,14 @@ export function EfficiencyPage({ data, filters }: { data: DashboardData; filters
                   <dt>Best day</dt>
                   <dd>
                     {p.format(p.best.value)}
-                    <span>{shortDate(p.best.date)}</span>
+                    <span>{fmtDateWithWeekday(p.best.date)}</span>
                   </dd>
                 </div>
                 <div>
                   <dt>Worst day</dt>
                   <dd>
                     {p.format(p.worst.value)}
-                    <span>{shortDate(p.worst.date)}</span>
+                    <span>{fmtDateWithWeekday(p.worst.date)}</span>
                   </dd>
                 </div>
                 <div>
