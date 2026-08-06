@@ -10,7 +10,7 @@ describe('validateUploadFile', () => {
   it('rejects other extensions, empty files, and oversized files', () => {
     expect(validateUploadFile({ name: 'data.txt', size: 1024 })).toContain('only .xlsx')
     expect(validateUploadFile({ name: 'ETM.xlsx', size: 0 })).toContain('empty')
-    expect(validateUploadFile({ name: 'ETM.xlsx', size: 51 * 1024 * 1024 })).toContain('50 MB')
+    expect(validateUploadFile({ name: 'ETM.xlsx', size: 201 * 1024 * 1024 })).toContain('200 MB')
   })
 })
 

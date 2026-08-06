@@ -24,7 +24,7 @@ from etram.ingest.load import run_ingest
 from etram.metrics.build import run_metrics
 
 __version__ = "0.3.0"
-MAX_UPLOAD_BYTES = 50 * 1024 * 1024
+MAX_UPLOAD_BYTES = 200 * 1024 * 1024
 MAX_STOP_SEQ_FILES = 62
 AGENCY_ID_RE = re.compile(r"^[a-z][a-z0-9_-]{0,63}$")
 
@@ -176,7 +176,7 @@ async def _save_upload(dest: Path, file: UploadFile) -> int:
                 break
             size += len(chunk)
             if size > MAX_UPLOAD_BYTES:
-                raise HTTPException(status_code=413, detail="File exceeds 50MB limit")
+                raise HTTPException(status_code=413, detail="File exceeds 200MB limit")
             f.write(chunk)
     await file.close()
     if size == 0:

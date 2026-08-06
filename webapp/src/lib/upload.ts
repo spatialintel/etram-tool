@@ -1,10 +1,10 @@
 const DATA_EXTS = /\.(xlsx|xls|csv)$/i
-const MAX_FILE = 50 * 1024 * 1024
+const MAX_FILE = 200 * 1024 * 1024
 
 export function validateUploadFile(file: { name: string; size: number }): string | null {
   if (!DATA_EXTS.test(file.name)) return `${file.name}: only .xlsx, .xls, or .csv files are allowed`
   if (file.size === 0) return `${file.name}: file is empty (0 bytes)`
-  if (file.size > MAX_FILE) return `${file.name}: exceeds 50 MB limit`
+  if (file.size > MAX_FILE) return `${file.name}: exceeds 200 MB limit`
   return null
 }
 
