@@ -19,11 +19,10 @@ export function InfoTip({ definitionKey, className }: InfoTipProps) {
         type="button"
         ref={triggerRef}
         className="ui-infotip-btn"
-        aria-label={`About ${def.label}`}
+        aria-label={`How ${def.label} is calculated`}
         aria-expanded={open}
         aria-haspopup="dialog"
         onClick={(e) => {
-          // The card behind this may itself be clickable.
           e.stopPropagation()
           setOpen(!open)
         }}
@@ -33,11 +32,20 @@ export function InfoTip({ definitionKey, className }: InfoTipProps) {
       {open && (
         <div className="ui-popover ui-infotip-panel" role="dialog">
           <div className="ui-infotip-title">{def.label}</div>
-          <div className="ui-infotip-formula">{def.formula}</div>
-          <div className="ui-infotip-meta">
-            Unit: {UNIT_LABEL[def.unit] || def.unit}
-            {def.note ? ` \u00B7 ${def.note}` : ''}
+          <div className="ui-infotip-section">
+            <div className="ui-infotip-label">Formula</div>
+            <div className="ui-infotip-formula">{def.formula}</div>
           </div>
+          <div className="ui-infotip-section">
+            <div className="ui-infotip-label">How calculated</div>
+            <div className="ui-infotip-how">{def.how}</div>
+          </div>
+          <div className="ui-infotip-meta">
+            Unit: {UNIT_LABEL[def.unit] || def.unit || 'count'}
+            {' \u00B7 '}
+            Source: {def.source}
+          </div>
+          {def.note ? <div className="ui-infotip-note">{def.note}</div> : null}
         </div>
       )}
     </span>

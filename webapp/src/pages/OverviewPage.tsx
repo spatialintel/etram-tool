@@ -923,13 +923,18 @@ export function OverviewPage({
             { key: 'metric', label: 'Metric' },
             { key: 'value', label: 'Value', align: 'right' },
             { key: 'formula', label: 'Formula' },
+            { key: 'how', label: 'How calculated' },
           ]}
-          rows={ops.map((o) => ({
-            __key: o.key,
-            metric: o.label,
-            value: o.value,
-            formula: getDefinition(o.key).formula,
-          }))}
+          rows={ops.map((o) => {
+            const def = getDefinition(o.key)
+            return {
+              __key: o.key,
+              metric: o.label,
+              value: o.value,
+              formula: def.formula,
+              how: def.how,
+            }
+          })}
         />
       </BreakdownDrawer>
 

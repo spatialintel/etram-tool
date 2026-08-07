@@ -363,6 +363,7 @@ export function TemporalPage({
               label="Peak-period share"
               value={peakShare != null ? fmtPct(peakShare) : '\u2014'}
               sub={`Top-quartile demand hours (${peakHours.size})`}
+              definitionKey="peak_share"
               onClick={() => setDrill('profile')}
               drillLabel="Peak detail"
             />
@@ -384,6 +385,7 @@ export function TemporalPage({
               label="Bunching proxy"
               value={peakBunchingCv != null ? peakBunchingCv.toFixed(2) : '\u2014'}
               sub="Coefficient of variation of peak-hour trip counts across days"
+              definitionKey="bunching"
               onClick={() => setDrill('headway')}
               drillLabel="Reliability detail"
             />

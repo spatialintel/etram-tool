@@ -127,11 +127,25 @@
   cursor: pointer;
 }
 .ui-infotip-btn:hover { color: var(--brand); border-color: var(--brand); }
-.ui-infotip-panel { min-width: 220px; max-width: 280px; left: 0; top: calc(100% + 6px); }
-.ui-infotip-title { font-weight: 600; margin-bottom: 4px; }
-.ui-infotip-formula { font-size: 12px; color: var(--text-secondary); margin-bottom: 6px; }
-.ui-infotip-meta { font-size: 11px; color: var(--text-muted); }
-.ui-infotip-note { margin-top: 6px; font-size: 11px; color: var(--text-muted); }
+.ui-infotip-panel { min-width: 260px; max-width: 340px; left: 0; top: calc(100% + 6px); z-index: 40; }
+.ui-infotip-title { font-weight: 600; margin-bottom: 8px; }
+.ui-infotip-section + .ui-infotip-section { margin-top: 8px; }
+.ui-infotip-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 2px;
+}
+.ui-infotip-formula {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+.ui-infotip-how { font-size: 12px; color: var(--text-secondary); line-height: 1.45; }
+.ui-infotip-meta { margin-top: 8px; font-size: 11px; color: var(--text-muted); }
+.ui-infotip-note { margin-top: 6px; font-size: 11px; color: var(--text-muted); line-height: 1.4; }
 
 /* StatCard upgrades */
 .ui-stat-label { display: flex; align-items: center; gap: 6px; }

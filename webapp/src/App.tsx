@@ -31,7 +31,7 @@ const pageTitles: Record<Page, { title: string; subtitle: string }> = {
   efficiency: { title: 'Efficiency', subtitle: 'Productivity and yield indicators' },
   entities: { title: 'Entities', subtitle: 'Vehicles, drivers, conductors, and stops' },
   compare: { title: 'Compare', subtitle: 'Period A vs Period B and biggest movers' },
-  definitions: { title: 'Definitions', subtitle: 'Metric formulas and units from the PBIX spec' },
+  definitions: { title: 'Definitions', subtitle: 'How every KPI is calculated — formulas and data sources' },
   upload: { title: 'Upload Data', subtitle: 'Ingest ETM, supporting, and stop-sequence files' },
 }
 

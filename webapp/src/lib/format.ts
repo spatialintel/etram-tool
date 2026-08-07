@@ -29,6 +29,7 @@ export const UNIT_LABEL = {
   pct: '%',
   min: 'min',
   count: '',
+  ratio: 'ratio (unitless)',
 } as const
 
 export type Unit = keyof typeof UNIT_LABEL
