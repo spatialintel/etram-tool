@@ -17,11 +17,13 @@ from etram.ingest.stage_km import load_od_distances, stage_km_for_pair  # noqa: 
 from etram.ingest.stop_map import build_stop_name_map  # noqa: E402
 
 MAY = ROOT / "Input files" / "May Data"
-SRC = MAY / "ETM_Bhavnagar_May_2026_routed.csv"
-OUT = MAY / "ETM_Bhavnagar_May_2026_ingest.csv"
-HOD = MAY / "Supporting data by HOD.xlsx"
-DIST = MAY / "100 FLEET(STOP TO STOP DISTANCE)_29.07.2026.xlsx"
-MAP_CSV = MAY / "stop_name_to_matrix_abbr.csv"
+UPLOAD = MAY / "Upload"
+WORKING = MAY / "Working"
+SRC = WORKING / "ETM_Bhavnagar_May_2026_routed.csv"
+OUT = WORKING / "ETM_Bhavnagar_May_2026_ingest.csv"
+HOD = WORKING / "Supporting data by HOD.xlsx"
+DIST = UPLOAD / "100 FLEET(STOP TO STOP DISTANCE)_29.07.2026.xlsx"
+MAP_CSV = WORKING / "stop_name_to_matrix_abbr.csv"
 
 
 def _trip_no_int(series: pd.Series) -> pd.Series:

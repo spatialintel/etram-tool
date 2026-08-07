@@ -21,9 +21,11 @@ from etram.ingest.route_map import (  # noqa: E402
 )
 
 MAY = ROOT / "Input files" / "May Data"
-COMPILED = MAY / "ETM_Bhavnagar_May_2026.csv"
-KML = MAY / "RAHUL MAP.kml"
-NOTE = MAY / "UPLOAD_PIPELINE_NOTES.md"
+UPLOAD = MAY / "Upload"
+WORKING = MAY / "Working"
+COMPILED = WORKING / "ETM_Bhavnagar_May_2026.csv"
+KML = WORKING / "RAHUL MAP.kml"
+NOTE = WORKING / "UPLOAD_PIPELINE_NOTES.md"
 
 
 def main() -> None:
@@ -64,7 +66,7 @@ def main() -> None:
     try:
         df.to_csv(out_path, index=False)
     except PermissionError:
-        out_path = MAY / "ETM_Bhavnagar_May_2026_routed.csv"
+        out_path = WORKING / "ETM_Bhavnagar_May_2026_routed.csv"
         df.to_csv(out_path, index=False)
         print(f"\nWARNING: {COMPILED.name} is locked; wrote {out_path.name} instead")
     print(f"\nUpdated {out_path}")

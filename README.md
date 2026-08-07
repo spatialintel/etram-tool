@@ -42,14 +42,27 @@ Do not keep a second editable copy at `C:\temp\webapp`.
 
 ## Railway deployment
 
-Deploy the repository root. `railway.json` selects the root `Dockerfile`, which
-builds the React dashboard and serves it from the FastAPI service. Railway must
-not use Python/Railpack auto-detection for this mixed Python/Node repository.
+Repo: https://github.com/spatialintel/etram-tool (`main`).
 
-- Health check: `/api/health`
-- Public dashboard: `/`
-- Upload API: `/api/jobs`
-- Runtime port: supplied automatically through `PORT`
+Deploy the repository root from GitHub. `railway.json` selects the root
+`Dockerfile`, which builds the React dashboard and serves it from FastAPI.
+Do not use Python/Railpack auto-detection for this mixed Python/Node repo.
 
-The container filesystem is ephemeral. Attach a Railway volume at `/app/data`
-if uploaded jobs and generated results must survive redeployments.
+### Fresh Hobby deploy (new Railway account)
+
+1. Connect GitHub and select `spatialintel/etram-tool`, branch `main`.
+2. Confirm builder is **Dockerfile** (root), not Railpack.
+3. After first deploy succeeds, generate a public domain.
+4. Attach a volume mounted at `/app/data` so job uploads survive restarts.
+5. Prefer **≥2 GB RAM** for full-month May packs (trial OOM/restarts otherwise).
+
+Endpoints:
+
+- Health: `/api/health`
+- Dashboard: `/`
+- Upload jobs: `/api/jobs`
+- Port: Railway `PORT`
+
+The portal is upload-first: no city data is preloaded; stakeholders upload the
+May `Upload/` pack (Conductor CSVs, Supporting data, distance workbook, stop
+sequences) to compile and build the dashboard.

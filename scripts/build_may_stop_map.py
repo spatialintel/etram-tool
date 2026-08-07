@@ -12,12 +12,14 @@ sys.path.insert(0, str(ROOT))
 from etram.ingest.stop_map import build_stop_name_map  # noqa: E402
 
 MAY = ROOT / "Input files" / "May Data"
+UPLOAD = MAY / "Upload"
+WORKING = MAY / "Working"
 
 
 def main() -> None:
-    hod_x = MAY / "Supporting data by HOD.xlsx"
-    dist = MAY / "100 FLEET(STOP TO STOP DISTANCE)_29.07.2026.xlsx"
-    tickets = pd.read_csv(MAY / "All_Tickets_Bhavnagar_May_2026.csv", low_memory=False)
+    hod_x = WORKING / "Supporting data by HOD.xlsx"
+    dist = UPLOAD / "100 FLEET(STOP TO STOP DISTANCE)_29.07.2026.xlsx"
+    tickets = pd.read_csv(WORKING / "All_Tickets_Bhavnagar_May_2026.csv", low_memory=False)
     tickets["pax"] = (
         pd.to_numeric(tickets["Total Adult"], errors="coerce").fillna(0)
         + pd.to_numeric(tickets["Total Child"], errors="coerce").fillna(0)
@@ -31,7 +33,7 @@ def main() -> None:
     print(f"unique stop names: {len(names)}")
 
     mapping = build_stop_name_map(names, hod_xlsx=hod_x, distance_xlsx=dist)
-    mapping.to_csv(MAY / "stop_name_to_matrix_abbr.csv", index=False)
+    mapping.to_csv(WORKING / "stop_name_to_matrix_abbr.csv", index=False)
 
     vol: dict[str, dict[str, float]] = {}
     for col in ["Origin", "Destination"]:
@@ -47,7 +49,7 @@ def main() -> None:
     unres["tickets_touch"] = unres["ticket_stop_name"].map(lambda x: vol.get(x, {}).get("tickets", 0))
     unres["pax_touch"] = unres["ticket_stop_name"].map(lambda x: vol.get(x, {}).get("pax", 0))
     unres = unres.sort_values("pax_touch", ascending=False)
-    unres.to_csv(MAY / "stop_mapping_unresolved.csv", index=False)
+    unres.to_csv(WORKING / "stop_mapping_unresolved.csv", index=False)
 
     mapped = mapping[mapping["matrix_abbr"].notna()]
     print(f"mapped names: {len(mapped)} / {len(mapping)} ({100 * len(mapped) / len(mapping):.1f}%)")

@@ -17,10 +17,10 @@ sys.path.insert(0, str(ROOT))
 from etram.ingest.transforms import route_direction_key  # noqa: E402
 
 APRIL_SEQ = ROOT / "Input files" / "April Data" / "Stops sequence"
-MAY_SEQ = ROOT / "Input files" / "May Data" / "Stops sequence"
-HOD = ROOT / "Input files" / "May Data" / "Supporting data by HOD.xlsx"
-OLD = ROOT / "Input files" / "May Data" / "Supporting data.xlsx"
-REPORT = ROOT / "Input files" / "May Data" / "stop_sequence_may_from_april_anomalies.csv"
+MAY_SEQ = ROOT / "Input files" / "May Data" / "Upload" / "Stops sequence"
+HOD = ROOT / "Input files" / "May Data" / "Working" / "Supporting data by HOD.xlsx"
+OLD = ROOT / "Input files" / "May Data" / "Upload" / "Supporting data.xlsx"
+REPORT = ROOT / "Input files" / "May Data" / "Working" / "stop_sequence_may_from_april_anomalies.csv"
 SHEET = "StopsSeq"
 
 
@@ -164,7 +164,7 @@ def main() -> None:
             )
 
     # Direction / abbr coverage vs May tickets (if ingest CSV present)
-    ingest = ROOT / "Input files" / "May Data" / "ETM_Bhavnagar_May_2026_ingest.csv"
+    ingest = ROOT / "Input files" / "May Data" / "Working" / "ETM_Bhavnagar_May_2026_ingest.csv"
     if ingest.exists():
         tickets = pd.read_csv(
             ingest, usecols=["Route No.", "Route description", "Pass. Origin", "Pass. Destination"]

@@ -9,6 +9,8 @@ import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[1]
 MAY = ROOT / "Input files" / "May Data"
+UPLOAD = MAY / "Upload"
+WORKING = MAY / "Working"
 
 
 def load_od_distances(distance_xlsx: Path) -> dict[tuple[str, str], float]:
@@ -49,13 +51,13 @@ def load_od_distances(distance_xlsx: Path) -> dict[tuple[str, str], float]:
 
 
 def main() -> None:
-    mapping = pd.read_csv(MAY / "stop_name_to_matrix_abbr.csv")
+    mapping = pd.read_csv(WORKING / "stop_name_to_matrix_abbr.csv")
     name2abbr = {
         r["ticket_stop_name"]: r["matrix_abbr"]
         for _, r in mapping.iterrows()
         if pd.notna(r["matrix_abbr"])
     }
-    tickets = pd.read_csv(MAY / "All_Tickets_Bhavnagar_May_2026.csv", low_memory=False)
+    tickets = pd.read_csv(WORKING / "All_Tickets_Bhavnagar_May_2026.csv", low_memory=False)
     tickets["pax"] = (
         pd.to_numeric(tickets["Total Adult"], errors="coerce").fillna(0)
         + pd.to_numeric(tickets["Total Child"], errors="coerce").fillna(0)
@@ -64,7 +66,7 @@ def main() -> None:
     tickets["o"] = tickets["Origin"].astype(str).str.strip().map(name2abbr)
     tickets["d"] = tickets["Destination"].astype(str).str.strip().map(name2abbr)
 
-    dist = MAY / "100 FLEET(STOP TO STOP DISTANCE)_29.07.2026.xlsx"
+    dist = UPLOAD / "100 FLEET(STOP TO STOP DISTANCE)_29.07.2026.xlsx"
     # peek one sheet
     xl = pd.ExcelFile(dist)
     sample = pd.read_excel(dist, sheet_name=xl.sheet_names[0], nrows=5)
