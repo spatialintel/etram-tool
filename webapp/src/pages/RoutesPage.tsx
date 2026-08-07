@@ -25,7 +25,6 @@ import { aggregateRoutes, type RouteAgg } from '../lib/aggregate'
 import { splitByComparison } from '../lib/filters'
 import type { FilterState, MetricKey } from '../lib/filters'
 import { fmtDelta, fmtInt, fmtMoney, fmtPct } from '../lib/format'
-import { usePrefs } from '../lib/prefs'
 import type { DashboardData } from '../types'
 
 type TabId = 'chart' | 'table' | 'compare'
@@ -75,8 +74,6 @@ export function RoutesPage({
   filters: FilterState
   onFilterChange: (patch: Partial<FilterState>) => void
 }) {
-  const [prefs] = usePrefs()
-  const lfTarget = prefs.targets.lf
   const [tab, setTab] = useState<TabId>('chart')
   const [scatterMode, setScatterMode] = useState<ScatterMode>('epkm-lf')
   const [selected, setSelected] = useState<RouteAgg | null>(null)
@@ -233,13 +230,12 @@ export function RoutesPage({
         header: 'Load factor',
         align: 'right',
         format: (v) => fmtPct(v as number),
-        threshold: (v) => (v >= lfTarget ? 'good' : v >= lfTarget * 0.75 ? 'warn' : 'bad'),
       },
       { key: 'trips', header: 'Trips', align: 'right', format: (v) => fmtInt(v as number) },
       { key: 'busesPerDay', header: 'Buses / day', align: 'right', format: (v) => (v as number).toFixed(1) },
       { key: 'days', header: 'Days', align: 'right', format: (v) => fmtInt(v as number) },
     ],
-    [lfTarget],
+    [],
   )
 
   if (all.length === 0) {

@@ -26,21 +26,4 @@ describe('StatCard', () => {
     )
     expect(html).toContain('Route detail')
   })
-
-  it('marks a lower-is-better target as successful below its target', () => {
-    const html = renderToStaticMarkup(
-      createElement(StatCard, {
-        label: 'Peak headway',
-        value: '22 min',
-        target: {
-          value: 30,
-          current: 22,
-          label: 'Target at most 30 min',
-          direction: 'lower',
-        },
-      }),
-    )
-    expect(html).toContain('On target')
-    expect(html).toContain('is-good')
-  })
 })

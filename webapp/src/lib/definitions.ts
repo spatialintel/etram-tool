@@ -5,12 +5,12 @@ export type MetricDefinition = {
   unit: Unit
   formula: string
   note?: string
-  target?: number
 }
 
 /**
  * Every KPI shown in the UI must have an entry here. Surfaced through InfoTip
  * and the Definitions page so an agency can audit what a number means.
+ * Formulas follow the PBIX / Phase 0 metric spec — no unverified targets.
  */
 export const DEFINITIONS = {
   ridership: {
@@ -28,7 +28,6 @@ export const DEFINITIONS = {
     unit: 'pct',
     formula: 'passenger-km / capacity-km',
     note: 'Uses scheduled seating capacity (not crush capacity).',
-    target: 0.6,
   },
   atl: {
     label: 'Average Trip Length (ATL)',
@@ -62,14 +61,14 @@ export const DEFINITIONS = {
   epkm: {
     label: 'Earnings per km (EPKM)',
     unit: 'inr',
-    formula: 'revenue / vehicle-km',
-    note: 'Revenue earned for every kilometre operated.',
+    formula: 'revenue / (average route length × trip count)',
+    note: 'Matches PBIX EPKM: SUM(revenue_trip) / (AVERAGE(route_length_km) × DISTINCTCOUNT(trip_id)).',
   },
   epb: {
     label: 'Earnings per Bus (EPB)',
     unit: 'inr',
     formula: 'revenue / active buses',
-    note: 'Average revenue earned per operating bus per day.',
+    note: 'Average revenue earned per bus-day in the selected period.',
   },
   rev_per_trip: {
     label: 'Revenue per Trip',
@@ -85,14 +84,12 @@ export const DEFINITIONS = {
     label: 'Trips per Bus',
     unit: 'count',
     formula: 'trips / active buses',
-    target: 6,
-    note: 'Target of 6 refers to daily scheduled trips per bus.',
   },
   headway: {
     label: 'Headway',
     unit: 'min',
-    formula: 'service span / (departures - 1)',
-    note: 'Estimated average interval between departures from observed first and last departure times. Not from a published timetable.',
+    formula: 'selected time interval (min) / trip count',
+    note: 'From PBIX Tripwise_Summary: span of first to last trip start (30-min bins) divided by number of trips in the filter context. Prefer reading route-level Temporal views when comparing routes.',
   },
   vehicle_km: {
     label: 'Vehicle-km',
@@ -104,7 +101,7 @@ export const DEFINITIONS = {
     label: 'Vehicle Utilization',
     unit: 'km',
     formula: 'vehicle-km / active buses',
-    note: 'Average distance operated per bus per day.',
+    note: 'Average distance operated per bus-day.',
   },
   pax_km: {
     label: 'Passenger-km',
@@ -125,18 +122,6 @@ export const DEFINITIONS = {
     label: 'Alighting',
     unit: 'pax',
     formula: 'passenger alightings at a stop',
-  },
-  cost_recovery: {
-    label: 'Cost Recovery Ratio',
-    unit: 'pct',
-    formula: 'revenue / operating cost',
-    note: 'Not shown until operating cost data is uploaded.',
-  },
-  on_time_performance: {
-    label: 'On-time Performance',
-    unit: 'pct',
-    formula: 'trips on time / trips observed',
-    note: 'Not shown until GPS or schedule adherence data is available.',
   },
 } as const satisfies Record<string, MetricDefinition>
 

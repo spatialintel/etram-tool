@@ -116,17 +116,11 @@ describe('builders', () => {
     expect(series[0].markLine).toBeDefined()
   })
 
-  it('colours a bullet green when actual meets target', () => {
-    const opt = bulletOption(80, 60, 100)
+  it('builds a compact load-factor bar', () => {
+    const opt = bulletOption(80, 100)
     const series = (Array.isArray(opt.series) ? opt.series : [opt.series]) as Array<{ data: number[]; itemStyle?: { color: string } }>
     expect(series[1].data[0]).toBe(80)
     expect(series[1].itemStyle?.color).toBe('#1B7A4E')
-  })
-
-  it('colours a bullet amber when actual misses target', () => {
-    const opt = bulletOption(40, 60, 100)
-    const series = (Array.isArray(opt.series) ? opt.series : [opt.series]) as Array<{ itemStyle?: { color: string } }>
-    expect(series[1].itemStyle?.color).toBe('#D97706')
   })
 
   it('ranks share bars with the largest at the top', () => {
@@ -142,10 +136,9 @@ describe('builders', () => {
     expect(y.data).toEqual(['A', 'C', 'B'])
   })
 
-  it('draws the bullet target line and the observed range', () => {
+  it('draws the period average and the observed range', () => {
     const opt = kpiBulletOption({
       actual: 0.55,
-      target: 0.6,
       range: { min: 0.4, max: 0.7 },
       format: (v) => `${v}`,
     })
@@ -154,12 +147,11 @@ describe('builders', () => {
       markLine?: { data: Array<{ xAxis: number }> }
       markArea?: { data: Array<Array<{ xAxis: number }>> }
     }>
-    // Track (carrying the observed range as a band) and the actual bar.
     expect(series).toHaveLength(2)
     expect(series[0].markArea?.data[0][0].xAxis).toBe(0.4)
     expect(series[0].markArea?.data[0][1].xAxis).toBe(0.7)
-    expect(series[1].markLine?.data[0].xAxis).toBe(0.6)
-    expect(series[1].itemStyle?.color).toBe('#D97706')
+    expect(series[1].markLine).toBeUndefined()
+    expect(series[1].itemStyle?.color).toBe('#1B7A4E')
   })
 
   it('normalises each matrix column to its own best value', () => {

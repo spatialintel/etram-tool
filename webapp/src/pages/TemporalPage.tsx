@@ -25,7 +25,6 @@ import { aggregateHours } from '../lib/aggregate'
 import { applyFilters, weekdayOf } from '../lib/filters'
 import type { FilterState } from '../lib/filters'
 import { fmtInt, fmtMoney, fmtPct } from '../lib/format'
-import { usePrefs } from '../lib/prefs'
 import { percentile } from '../lib/stats'
 import type { DashboardData, SlotSummaryRow, TemporalRow } from '../types'
 
@@ -69,11 +68,9 @@ export function TemporalPage({
   filters: FilterState
   onFilterChange: (patch: Partial<FilterState>) => void
 }) {
-  const [prefs] = usePrefs()
   const [gran, setGran] = useState<Gran>('hourly')
   const [drill, setDrill] = useState<'supply' | 'profile' | 'headway' | null>(null)
   const isV2 = (data.meta?.schema_version ?? 1) >= 2
-  const headwayTarget = prefs.targets.headwayMins
 
   const temporalRows = useMemo(
     () => applyFilters(data.temporal, filters) as TemporalRow[],
@@ -255,13 +252,12 @@ export function TemporalPage({
         median,
         low,
         high,
-        target: headwayTarget,
         yName: 'Minutes between trips',
         unit: 'min',
         seriesName: 'Median headway',
       }),
     }
-  }, [rows, temporalRows, headwayTarget])
+  }, [rows, temporalRows])
 
   const demandSupplyOpt = useMemo(
     (): EChartsOption => ({
@@ -381,23 +377,13 @@ export function TemporalPage({
               value={peakHeadway.peak != null ? `${peakHeadway.peak} min` : '\u2014'}
               sub={peakHeadway.off != null ? `Off-peak ${peakHeadway.off} min` : undefined}
               definitionKey="headway"
-              target={
-                peakHeadway.peak != null
-                  ? {
-                      value: headwayTarget,
-                      current: peakHeadway.peak,
-                      label: `Target at most ${headwayTarget} min`,
-                      direction: 'lower',
-                    }
-                  : undefined
-              }
               onClick={() => setDrill('headway')}
               drillLabel="Reliability detail"
             />
             <StatCard
               label="Bunching proxy"
               value={peakBunchingCv != null ? peakBunchingCv.toFixed(2) : '\u2014'}
-              sub="Peak trip variation · below 0.20 even; above 0.40 bunched"
+              sub="Coefficient of variation of peak-hour trip counts across days"
               onClick={() => setDrill('headway')}
               drillLabel="Reliability detail"
             />
@@ -459,7 +445,7 @@ export function TemporalPage({
           </Card>
           <Card
             title="Headway reliability by hour"
-            subtitle={`Median gap between trips with the day-to-day range \u00B7 target ${headwayTarget} min`}
+            subtitle="Median gap between trips with the day-to-day range"
             onDrill={() => setDrill('headway')}
           >
             <Chart option={headwayOpt} height={300} group="temporal" />
@@ -513,14 +499,13 @@ export function TemporalPage({
         stats={[
           { label: 'Peak headway', value: peakHeadway.peak != null ? `${peakHeadway.peak} min` : '\u2014' },
           { label: 'Off-peak headway', value: peakHeadway.off != null ? `${peakHeadway.off} min` : '\u2014' },
-          { label: 'Target', value: `${headwayTarget} min` },
           {
             label: 'Bunching proxy',
             value: peakBunchingCv != null ? peakBunchingCv.toFixed(2) : '\u2014',
             hint: 'Variation in trips across peak hours',
           },
         ]}
-        note="A wide band means the same hour is served unevenly on different days. That is a rostering and dispatch problem, not a timetable problem: fix it before shortening the published headway."
+        note="A wide band means the same hour is served unevenly on different days. That is a rostering and dispatch problem, not a timetable problem."
       />
     </div>
   )

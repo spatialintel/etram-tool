@@ -14,13 +14,6 @@ export interface StatCardProps {
   variant?: StatCardVariant
   className?: string
   spark?: number[]
-  target?: {
-    value: number
-    current: number
-    label?: string
-    direction?: 'higher' | 'lower'
-    statusLabel?: string
-  }
   definitionKey?: DefinitionKey
   /** What the sparkline plots. Defaults to a day count. */
   sparkLabel?: string
@@ -51,31 +44,11 @@ export function StatCard({
   variant = 'default',
   className,
   spark,
-  target,
   definitionKey,
   sparkLabel,
   onClick,
   drillLabel = 'Explore',
 }: StatCardProps) {
-  const achievement = target && target.value > 0
-    ? target.direction === 'lower'
-      ? target.current <= 0
-        ? 1
-        : target.value / target.current
-      : target.current / target.value
-    : null
-  const progress = achievement == null ? null : Math.max(0, Math.min(100, achievement * 100))
-  const targetTone =
-    achievement == null ? null : achievement >= 1 ? 'good' : achievement >= 0.75 ? 'warn' : 'bad'
-  const targetStatus =
-    target?.statusLabel ??
-    (targetTone === 'good'
-      ? 'On target'
-      : targetTone === 'warn'
-        ? 'Near target'
-        : target?.direction === 'lower'
-          ? 'Above target'
-          : 'Below target')
   const showSpark = hasReadableTrend(spark)
 
   const classes = [
@@ -119,20 +92,6 @@ export function StatCard({
       )}
       {trend && (
         <StatusBadge tone={trend.up ? 'up' : 'down'}>{trend.label}</StatusBadge>
-      )}
-      {progress != null && (
-        <div className="ui-stat-target" title={target?.label ?? 'Target'}>
-          <div className="ui-stat-target-track">
-            <div
-              className={`ui-stat-target-fill is-${targetTone}`}
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-          <span className="ui-stat-target-label">
-            <span>{target?.label ?? 'Target'}</span>
-            <strong className={`is-${targetTone}`}>{targetStatus}</strong>
-          </span>
-        </div>
       )}
       {sub && <div className="ui-stat-sub">{sub}</div>}
       {onClick && (

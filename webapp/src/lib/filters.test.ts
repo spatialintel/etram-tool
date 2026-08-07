@@ -176,7 +176,6 @@ describe('URL round-trip', () => {
       metric: 'revenue',
       showValues: true,
       showAverage: false,
-      showTarget: true,
     })
     expect(parseFilters(serializeFilters(original))).toEqual(original)
   })

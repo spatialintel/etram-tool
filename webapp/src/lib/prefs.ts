@@ -6,7 +6,6 @@ export type Prefs = {
   theme: 'light' | 'dark'
   density: 'comfortable' | 'compact'
   compactNumbers: boolean
-  targets: { lf: number; fareYield: number; tripsPerBus: number; headwayMins: number }
   savedViews: SavedView[]
 }
 
@@ -14,7 +13,6 @@ export const DEFAULT_PREFS: Prefs = {
   theme: 'light',
   density: 'comfortable',
   compactNumbers: false,
-  targets: { lf: 0.6, fareYield: 12, tripsPerBus: 6, headwayMins: 20 },
   savedViews: [],
 }
 
@@ -25,12 +23,13 @@ export function readPrefs(): Prefs {
   try {
     const raw = localStorage.getItem(KEY)
     if (!raw) return DEFAULT_PREFS
-    const parsed = JSON.parse(raw) as Partial<Prefs>
-    // Shallow merge keeps older stored objects usable when new prefs are added.
+    const parsed = JSON.parse(raw) as Partial<Prefs> & { targets?: unknown }
+    // Drop legacy `targets` from older prefs blobs.
+    const { targets: _ignored, ...rest } = parsed
+    void _ignored
     return {
       ...DEFAULT_PREFS,
-      ...parsed,
-      targets: { ...DEFAULT_PREFS.targets, ...(parsed.targets ?? {}) },
+      ...rest,
       savedViews: parsed.savedViews ?? [],
     }
   } catch {
@@ -48,15 +47,15 @@ export function writePrefs(p: Prefs): void {
 }
 
 export function usePrefs(): [Prefs, (patch: Partial<Prefs>) => void] {
-  const [prefs, setPrefs] = useState<Prefs>(readPrefs)
+  const [prefs, setPrefs] = useState<Prefs>(() => readPrefs())
 
   useEffect(() => {
     writePrefs(prefs)
   }, [prefs])
 
-  const update = useCallback((patch: Partial<Prefs>) => {
-    setPrefs((prev) => ({ ...prev, ...patch }))
+  const patch = useCallback((next: Partial<Prefs>) => {
+    setPrefs((prev) => ({ ...prev, ...next }))
   }, [])
 
-  return [prefs, update]
+  return [prefs, patch]
 }

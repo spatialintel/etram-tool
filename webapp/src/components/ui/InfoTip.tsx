@@ -36,7 +36,7 @@ export function InfoTip({ definitionKey, className }: InfoTipProps) {
           <div className="ui-infotip-formula">{def.formula}</div>
           <div className="ui-infotip-meta">
             Unit: {UNIT_LABEL[def.unit] || def.unit}
-            {def.target != null ? ` \u00B7 Target: ${def.unit === 'pct' ? `${(def.target * 100).toFixed(0)}%` : def.target}` : ''}
+            {def.note ? ` \u00B7 ${def.note}` : ''}
           </div>
         </div>
       )}

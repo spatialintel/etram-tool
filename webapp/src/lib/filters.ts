@@ -24,7 +24,6 @@ export type FilterState = {
   metric: MetricKey
   showValues: boolean
   showAverage: boolean
-  showTarget: boolean
 }
 
 export const DEFAULT_FILTERS: FilterState = {
@@ -42,7 +41,6 @@ export const DEFAULT_FILTERS: FilterState = {
   metric: 'ridership',
   showValues: false,
   showAverage: true,
-  showTarget: false,
 }
 
 /* Date helpers. service_date is a calendar date, so everything is UTC-based. */
@@ -278,7 +276,6 @@ export function serializeFilters(f: FilterState): string {
   if (f.metric !== DEFAULT_FILTERS.metric) p.set('metric', f.metric)
   if (f.showValues !== DEFAULT_FILTERS.showValues) p.set('vals', f.showValues ? '1' : '0')
   if (f.showAverage !== DEFAULT_FILTERS.showAverage) p.set('avg', f.showAverage ? '1' : '0')
-  if (f.showTarget !== DEFAULT_FILTERS.showTarget) p.set('tgt', f.showTarget ? '1' : '0')
   return p.toString()
 }
 
@@ -347,7 +344,6 @@ export function parseFilters(search: string, base: FilterState = DEFAULT_FILTERS
 
   if (p.has('vals')) next.showValues = p.get('vals') === '1'
   if (p.has('avg')) next.showAverage = p.get('avg') === '1'
-  if (p.has('tgt')) next.showTarget = p.get('tgt') === '1'
 
   return next
 }

@@ -26,7 +26,6 @@ import { aggregateDaily, aggregateRoutes, periodTotals } from '../lib/aggregate'
 import { applyFilters, splitByComparison } from '../lib/filters'
 import type { FilterState } from '../lib/filters'
 import { fmtDateShort, fmtDateWithWeekday, fmtDelta, fmtInt, fmtMoney, fmtPct, fmtWeekday } from '../lib/format'
-import { usePrefs } from '../lib/prefs'
 import type { DashboardData, KpiDailyRow, Page } from '../types'
 import { getDefinition } from '../lib/definitions'
 import type { DefinitionKey as DefKey } from '../lib/definitions'
@@ -70,11 +69,9 @@ export function OverviewPage({
   onUploadClick: () => void
   onNavigate: (page: Page, patch?: Partial<FilterState>) => void
 }) {
-  const [prefs] = usePrefs()
   const [drill, setDrill] = useState<DrillKey>(null)
   const minDate = data.agency.date_min
   const isV2 = (data.meta?.schema_version ?? 1) >= 2
-  const lfTarget = prefs.targets.lf
 
   const { current, comparison, comparisonRange } = useMemo(
     () => splitByComparison(data.daily, filters, { min: minDate }),
@@ -281,16 +278,14 @@ export function OverviewPage({
     (): EChartsOption =>
       kpiBulletOption({
         actual: totals.lf,
-        target: lfTarget,
-        max: Math.max(lfTarget, lfSpread?.max ?? totals.lf) * 1.1,
+        max: Math.max(lfSpread?.max ?? totals.lf, totals.lf) * 1.1,
         range: lfSpread ?? undefined,
         format: (v) => fmtPct(v),
-        targetLabel: `Target ${(lfTarget * 100).toFixed(0)}%`,
       }),
-    [totals.lf, lfTarget, lfSpread],
+    [totals.lf, lfSpread],
   )
 
-  /** Daily load factor, sorted, so best and worst service days are one hop away. */
+  /** Daily load factor, sorted, so best and weakest service days are one hop away. */
   const lfDays = useMemo(() => {
     const rows = current
       .map((d) => ({
@@ -300,11 +295,8 @@ export function OverviewPage({
       }))
       .filter((r) => r.lf > 0)
       .sort((a, b) => b.lf - a.lf)
-    return {
-      rows,
-      aboveTarget: rows.filter((r) => r.lf >= lfTarget).length,
-    }
-  }, [current, lfTarget])
+    return { rows }
+  }, [current])
 
   const byWeekday = useMemo(() => {
     const names = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
@@ -425,11 +417,6 @@ export function OverviewPage({
           }
           trend={trendOf(totals.lf, prevTotals?.lf)}
           definitionKey="lf"
-          target={{
-            value: lfTarget,
-            current: totals.lf,
-            label: `Target ${(lfTarget * 100).toFixed(0)}%`,
-          }}
           spark={series.map((b) => b.lf)}
           onClick={() => setDrill('lf')}
           drillLabel="Daily load factors"
@@ -456,11 +443,11 @@ export function OverviewPage({
           <Chart option={comboOpt} height={340} group="overview" empty={series.length === 0} />
         </Card>
         <Card
-          title="Load factor (LF) against target"
+          title="Load factor (LF)"
           subtitle={
             lfSpread
               ? `Daily range ${fmtPct(lfSpread.min)} to ${fmtPct(lfSpread.max)} across ${lfDays.rows.length} service days`
-              : `Period average against the ${(lfTarget * 100).toFixed(0)}% target`
+              : 'Period average from passenger-km / capacity-km'
           }
           onDrill={() => setDrill('lf')}
         >
@@ -474,21 +461,8 @@ export function OverviewPage({
               <span className="lf-bullet-swatch lf-bullet-swatch--actual" aria-hidden />
               Period average
             </li>
-            <li>
-              <span className="lf-bullet-swatch lf-bullet-swatch--target" aria-hidden />
-              Target {(lfTarget * 100).toFixed(0)}%
-            </li>
           </ul>
           <div className="overview-lf-facts">
-            <ListRow
-              title="Days at or above target"
-              meta={`${lfDays.aboveTarget} of ${lfDays.rows.length} service days`}
-              badge={
-                <StatusBadge tone={lfDays.aboveTarget * 2 >= lfDays.rows.length ? 'up' : 'down'}>
-                  {fmtPct(lfDays.aboveTarget / Math.max(lfDays.rows.length, 1))}
-                </StatusBadge>
-              }
-            />
             {lfDays.rows.length > 0 && (
               <>
                 <ListRow
@@ -765,12 +739,14 @@ export function OverviewPage({
         subtitle="Passenger-km divided by capacity-km"
         stats={[
           { label: 'Period load factor', value: fmtPct(totals.lf) },
-          { label: 'Target', value: fmtPct(lfTarget) },
           {
-            label: 'Days at or above target',
-            value: `${lfDays.aboveTarget} of ${lfDays.rows.length}`,
-            hint: fmtPct(lfDays.aboveTarget / Math.max(lfDays.rows.length, 1)),
+            label: 'Daily range',
+            value:
+              lfSpread != null
+                ? `${fmtPct(lfSpread.min)} \u2013 ${fmtPct(lfSpread.max)}`
+                : '\u2014',
           },
+          { label: 'Service days with LF', value: fmtInt(lfDays.rows.length) },
           { label: 'Passenger-km', value: fmtInt(Math.round(totals.pax_km)) },
         ]}
         note={[
@@ -825,7 +801,7 @@ export function OverviewPage({
           { label: 'Trips per bus', value: totals.tripsPerBus.toFixed(1) },
           { label: 'Trips per day', value: fmtInt(Math.round(totals.trips / Math.max(totals.days, 1))) },
         ]}
-        note="Trips per bus below target usually indicates lost running time (breakdowns, crew changeovers, terminal layover) rather than a shortage of vehicles."
+        note="Trips per bus is n_trips / n_buses from the route-day summary (PBIX). Low values usually indicate lost running time (breakdowns, crew changeovers, terminal layover) rather than a shortage of vehicles."
       >
         <BreakdownTable
           caption="Trips by route"

@@ -98,6 +98,7 @@ def kpi_vehicle_km_per_bus(route_day: pd.DataFrame) -> float | None:
 
 
 def kpi_headway_mins(trip_summary: pd.DataFrame) -> float | None:
+    """PBIX: Selected time interval_min / COUNT(bus_trip_key)."""
     if trip_summary.empty:
         return None
     t1 = pd.to_datetime(trip_summary["timeslot_1"], errors="coerce").dropna()
@@ -106,9 +107,9 @@ def kpi_headway_mins(trip_summary: pd.DataFrame) -> float | None:
         return None
     span_min = (t2.max() - t1.min()).total_seconds() / 60.0
     n_departures = len(trip_summary)
-    if n_departures < 2:
+    if n_departures < 1:
         return None
-    return float(span_min / (n_departures - 1))
+    return float(span_min / n_departures)
 
 
 def summarize_kpis(

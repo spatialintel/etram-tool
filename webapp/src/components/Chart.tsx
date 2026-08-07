@@ -625,27 +625,22 @@ export function rankedShareBarOption(
 }
 
 /**
- * A KPI against its target, with the observed spread behind it. Reads more
- * precisely than a gauge and costs a fraction of the vertical space.
+ * Period load factor with observed daily range. No unverified target line.
  */
 export function kpiBulletOption(opts: {
   actual: number
-  target: number
   max?: number
   range?: { min: number; max: number }
   format: (v: number) => string
-  targetLabel?: string
 }): EChartsOption {
-  const ceil = Math.max(opts.max ?? 0, opts.actual, opts.target, opts.range?.max ?? 0, 1) * 1.08
-  const onTarget = opts.actual >= opts.target
+  const ceil = Math.max(opts.max ?? 0, opts.actual, opts.range?.max ?? 0, 1) * 1.08
   return {
     tooltip: {
       trigger: 'item',
       formatter: () =>
         [
-          `Actual: <b>${opts.format(opts.actual)}</b>`,
-          `Target: <b>${opts.format(opts.target)}</b>`,
-          opts.range ? `Observed: ${opts.format(opts.range.min)} to ${opts.format(opts.range.max)}` : '',
+          `Period average: <b>${opts.format(opts.actual)}</b>`,
+          opts.range ? `Daily range: ${opts.format(opts.range.min)} to ${opts.format(opts.range.max)}` : '',
         ]
           .filter(Boolean)
           .join('<br/>'),
@@ -661,8 +656,6 @@ export function kpiBulletOption(opts: {
     },
     yAxis: { type: 'category', data: [''], show: false },
     series: [
-      // Track, observed range, actual and target read as one object rather than
-      // four stacked series, so the eye lands on the actual bar first.
       {
         type: 'bar',
         data: [ceil],
@@ -689,27 +682,8 @@ export function kpiBulletOption(opts: {
         data: [opts.actual],
         barWidth: 12,
         barGap: '-100%',
-        itemStyle: { color: onTarget ? '#1B7A4E' : '#D97706', borderRadius: 2 },
+        itemStyle: { color: '#1B7A4E', borderRadius: 2 },
         z: 3,
-        markLine: {
-          silent: true,
-          symbol: 'none',
-          precision: 2,
-          data: [
-            {
-              xAxis: opts.target,
-              label: {
-                formatter: opts.targetLabel ?? `Target ${opts.format(opts.target)}`,
-                position: 'end',
-                distance: 6,
-                rotate: 0,
-                fontSize: 10,
-                color: '#374151',
-              },
-            },
-          ],
-          lineStyle: { color: '#111827', type: 'solid', width: 2 },
-        },
       },
     ],
   }
@@ -1196,22 +1170,19 @@ export function stackedPanelsOption(opts: {
 }
 
 /**
- * Compact bullet for small-multiple grids: one track, one actual bar, one
- * target tick. The scale is stated once by the caller, so each cell carries
- * only its own value label.
+ * Compact bar for small-multiple grids: track + actual. Shared scale from caller.
  */
 export function bulletOption(
   actual: number,
-  target: number,
   max: number,
   opts?: { format?: (v: number) => string },
 ): EChartsOption {
-  const ceil = Math.max(max, actual, target, 1)
+  const ceil = Math.max(max, actual, 1)
   const fmt = opts?.format ?? ((v: number) => fmtNum(v, 1))
   return {
     tooltip: {
       trigger: 'item',
-      formatter: () => `Actual: <b>${fmt(actual)}</b><br/>Target: <b>${fmt(target)}</b>`,
+      formatter: () => `Load factor: <b>${fmt(actual)}</b>`,
     },
     grid: { left: 4, right: 44, top: 10, bottom: 10, containLabel: true },
     xAxis: {
@@ -1234,7 +1205,7 @@ export function bulletOption(
         data: [actual],
         barWidth: 16,
         barGap: '-100%',
-        itemStyle: { color: actual >= target ? '#1B7A4E' : '#D97706', borderRadius: 3 },
+        itemStyle: { color: '#1B7A4E', borderRadius: 3 },
         label: {
           show: true,
           position: 'right',
@@ -1245,12 +1216,6 @@ export function bulletOption(
           formatter: () => fmt(actual),
         },
         z: 2,
-        markLine: {
-          silent: true,
-          symbol: 'none',
-          data: [{ xAxis: target, label: { show: false } }],
-          lineStyle: { color: '#111827', type: 'solid', width: 2 },
-        },
       },
     ],
   }

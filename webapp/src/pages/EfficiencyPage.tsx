@@ -5,7 +5,6 @@ import {
   bulletOption,
   categoryAxis,
   markAvg,
-  markTarget,
   normalizedMatrixOption,
   toolboxDefaults,
   tooltipUnits,
@@ -17,7 +16,6 @@ import type { RouteAgg } from '../lib/aggregate'
 import { applyFilters, splitByComparison } from '../lib/filters'
 import type { FilterState } from '../lib/filters'
 import { fmtDateWithWeekday, fmtDelta, fmtInt, fmtKm, fmtMoney, fmtPct } from '../lib/format'
-import { usePrefs } from '../lib/prefs'
 import type { DashboardData, KpiDailyRow, TripDistributionBin } from '../types'
 
 function meanKpi(rows: KpiDailyRow[], key: keyof KpiDailyRow): number | null {
@@ -56,8 +54,7 @@ function seriesStats(dates: string[], values: (number | null)[]): SeriesStats {
 }
 
 /**
- * A daily KPI panel: the line plus the three readings an operator asks for
- * next — where it sits against target, and which days were best and worst.
+ * A daily KPI panel: the line, period average, and best/worst days.
  */
 function trendOpt(opts: {
   dates: string[]
@@ -67,10 +64,8 @@ function trendOpt(opts: {
   unit: string
   format: (v: number) => string
   showAvg: boolean
-  target?: number
-  targetLabel?: string
 }): EChartsOption {
-  const { dates, values, name, color, unit, format, showAvg, target } = opts
+  const { dates, values, name, color, unit, format, showAvg } = opts
   return {
     legend: { show: false },
     tooltip: tooltipUnits({ [name]: unit }),
@@ -115,7 +110,6 @@ function trendOpt(opts: {
           },
         },
         ...(showAvg ? markAvg() : {}),
-        ...(target != null ? markTarget(target, opts.targetLabel ?? 'Target') : {}),
       },
     ],
   }
@@ -149,7 +143,6 @@ function histOpt(bins: TripDistributionBin[], metric: string, unit: string): ECh
 }
 
 export function EfficiencyPage({ data, filters }: { data: DashboardData; filters: FilterState }) {
-  const [prefs] = usePrefs()
   const [drill, setDrill] = useState<'matrix' | 'epkm' | 'lf' | null>(null)
   const minDate = data.agency.date_min
   const isV2 = (data.meta?.schema_version ?? 1) >= 2
@@ -252,16 +245,14 @@ export function EfficiencyPage({ data, filters }: { data: DashboardData; filters
   }, [allRoutes])
 
   const bullets = useMemo(() => {
-    const target = prefs.targets.lf * 100
-    const ceil = Math.max(target * 1.25, ...routeRows.map((r) => r.lf * 100), 1)
+    const ceil = Math.max(...routeRows.map((r) => r.lf * 100), 1)
     return routeRows.slice(0, 6).map((r) => ({
       code: r.route_code,
-      gap: r.lf * 100 - target,
-      option: bulletOption(Number((r.lf * 100).toFixed(1)), target, ceil, {
+      option: bulletOption(Number((r.lf * 100).toFixed(1)), ceil, {
         format: (v) => `${v.toFixed(1)}%`,
       }) as EChartsOption,
     }))
-  }, [routeRows, prefs.targets.lf])
+  }, [routeRows])
 
   const trendPanels = useMemo(() => {
     const defs = [
@@ -275,8 +266,6 @@ export function EfficiencyPage({ data, filters }: { data: DashboardData; filters
         unit: '\u20B9',
         format: (v: number) => fmtMoney(v, { dp: 1 }),
         lowerIsBetter: false,
-        target: undefined as number | undefined,
-        targetLabel: undefined as string | undefined,
       },
       {
         key: 'headway',
@@ -288,8 +277,6 @@ export function EfficiencyPage({ data, filters }: { data: DashboardData; filters
         unit: 'min',
         format: (v: number) => `${v.toFixed(1)} min`,
         lowerIsBetter: true,
-        target: prefs.targets.headwayMins,
-        targetLabel: `Target at most ${prefs.targets.headwayMins} min`,
       },
       {
         key: 'epb',
@@ -301,8 +288,6 @@ export function EfficiencyPage({ data, filters }: { data: DashboardData; filters
         unit: '\u20B9',
         format: (v: number) => fmtMoney(v, { compact: v >= 1e5 }),
         lowerIsBetter: false,
-        target: undefined as number | undefined,
-        targetLabel: undefined as string | undefined,
       },
       {
         key: 'vkm',
@@ -314,8 +299,6 @@ export function EfficiencyPage({ data, filters }: { data: DashboardData; filters
         unit: 'km',
         format: (v: number) => `${fmtInt(Math.round(v))} km`,
         lowerIsBetter: false,
-        target: undefined as number | undefined,
-        targetLabel: undefined as string | undefined,
       },
     ]
     return defs.map((d) => {
@@ -335,12 +318,10 @@ export function EfficiencyPage({ data, filters }: { data: DashboardData; filters
           unit: d.unit,
           format: d.format,
           showAvg: filters.showAverage,
-          target: d.target,
-          targetLabel: d.targetLabel,
         }),
       }
     })
-  }, [kpiSeries, filters.showAverage, prefs.targets.headwayMins])
+  }, [kpiSeries, filters.showAverage])
 
   const tripDist = data.trip_distribution ?? []
 
@@ -410,16 +391,6 @@ export function EfficiencyPage({ data, filters }: { data: DashboardData; filters
           value={dash(kpiAvg.headway_mins, (v) => `${v.toFixed(1)} min`)}
           sub="Gap between consecutive trips"
           definitionKey="headway"
-          target={
-            kpiAvg.headway_mins != null
-              ? {
-                  value: prefs.targets.headwayMins,
-                  current: kpiAvg.headway_mins,
-                  label: `Target at most ${prefs.targets.headwayMins} min`,
-                  direction: 'lower',
-                }
-              : undefined
-          }
           spark={kpiSeries.headway_mins.filter((v): v is number => v != null)}
         />
         <StatCard
@@ -430,19 +401,13 @@ export function EfficiencyPage({ data, filters }: { data: DashboardData; filters
           onClick={() => setDrill('lf')}
           drillLabel="Route load factors"
           trend={trendOf(totals.lf, prev?.lf)}
-          target={{ value: prefs.targets.lf, current: totals.lf, label: `Target ${(prefs.targets.lf * 100).toFixed(0)}%` }}
           spark={kpiSeries.LF.filter((v): v is number => v != null)}
         />
         <StatCard
           label="Trips per bus"
           value={totals.tripsPerBus.toFixed(1)}
-          sub="Daily scheduled trips delivered by each bus"
+          sub="Trips delivered per bus-day"
           definitionKey="trips_per_bus"
-          target={{
-            value: prefs.targets.tripsPerBus,
-            current: totals.tripsPerBus,
-            label: `Target ${prefs.targets.tripsPerBus} daily trips/bus`,
-          }}
           spark={kpiSeries.trips_per_bus.filter((v): v is number => v != null)}
         />
       </div>
@@ -514,17 +479,14 @@ export function EfficiencyPage({ data, filters }: { data: DashboardData; filters
 
       {bullets.length > 0 && (
         <Card
-          title="Load factor against target, by route"
-          subtitle={`Bar is the route average, the black tick is the ${(prefs.targets.lf * 100).toFixed(0)}% target. Top routes by fare yield.`}
+          title="Load factor by route"
+          subtitle="Route averages for the top routes by fare yield"
         >
           <div className="efficiency-bullets">
             {bullets.map((b) => (
               <div key={b.code} className="efficiency-bullet-cell">
                 <div className="efficiency-bullet-head">
                   <span className="trends-multi-label">{b.code}</span>
-                  <span className={`efficiency-bullet-gap is-${b.gap >= 0 ? 'good' : 'bad'}`}>
-                    {`${b.gap >= 0 ? '+' : ''}${b.gap.toFixed(1)} pts`}
-                  </span>
                 </div>
                 <Chart option={b.option} height={44} />
               </div>
@@ -551,7 +513,7 @@ export function EfficiencyPage({ data, filters }: { data: DashboardData; filters
         subtitle={`${matrix.routes.length} routes \u00B7 ${filters.range.start} to ${filters.range.end}`}
         width={640}
         stats={[
-          { label: 'Network load factor', value: fmtPct(totals.lf), hint: `Target ${fmtPct(prefs.targets.lf)}` },
+          { label: 'Network load factor', value: fmtPct(totals.lf) },
           {
             label: 'Earnings per km',
             value: dash(kpiAvg.EPKM, (v) => fmtMoney(v, { dp: 2 })),
