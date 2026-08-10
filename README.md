@@ -66,3 +66,15 @@ Endpoints:
 The portal is upload-first: no city data is preloaded; stakeholders upload the
 May `Upload/` pack (Conductor CSVs, Supporting data, distance workbook, stop
 sequences) to compile and build the dashboard.
+
+### Concurrency
+
+The pipeline holds both an in-process `threading.Lock` and a cross-process
+file lock on `data/.pipeline.lock` (see `etram/_file_lock.py`). The job
+registry is merged across workers (newer `updated_at` wins) and read through
+`_registry_view()`, so separate workers can see and persist each other's jobs.
+Single uvicorn worker is the supported deployment; the file locks are a safety
+net for the case where multiple workers are run anyway. Known multi-worker
+gap: `_reconcile_stale_jobs` assumes one owner and will mark another worker's
+in-flight jobs as failed on restart. Move job state to an external queue/DB
+before scaling horizontally.

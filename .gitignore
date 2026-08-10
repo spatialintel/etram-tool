@@ -19,6 +19,7 @@ Input files/
 data/canonical/**
 data/raw/**
 data/jobs/
+data/.pipeline.lock
 *.parquet
 
 # Keep placeholders so folders exist after clone

@@ -20,6 +20,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
+from etram._file_lock import FileLock
 from etram.ingest.load import run_ingest
 from etram.metrics.build import run_metrics
 
@@ -34,6 +35,10 @@ PIPELINE_LOCK = threading.Lock()
 
 def _project_root() -> Path:
     return Path(__file__).resolve().parents[1]
+
+
+def _pipeline_lock_path() -> Path:
+    return _project_root() / "data" / ".pipeline.lock"
 
 
 def _utc_now() -> str:
@@ -81,10 +86,65 @@ def _registry_path() -> Path:
     return _jobs_root() / "registry.json"
 
 
+def _registry_lock_path() -> Path:
+    return _jobs_root() / ".registry.lock"
+
+
+def _read_registry() -> dict[str, Job]:
+    """Read jobs persisted by any process from the on-disk registry."""
+    p = _registry_path()
+    if not p.exists():
+        return {}
+    try:
+        payload = json.loads(p.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+    out: dict[str, Job] = {}
+    for job_id, row in payload.items():
+        try:
+            out[job_id] = Job(**row)
+        except TypeError:
+            continue
+    return out
+
+
+def _merge_jobs(disk: dict[str, Job], memory: dict[str, Job]) -> dict[str, Job]:
+    """disk overlaid with memory; the entry with the newer ``updated_at`` wins.
+
+    ``updated_at`` is always ``_utc_now()`` (ISO-8601 with +00:00), so string
+    comparison is chronological. This lets a process merge its in-memory view
+    into the shared registry without regressing fresher entries another worker
+    wrote.
+    """
+    merged = dict(disk)
+    for job_id, job in memory.items():
+        other = merged.get(job_id)
+        if other is None or job.updated_at >= other.updated_at:
+            merged[job_id] = job
+    return merged
+
+
+def _registry_view() -> dict[str, Job]:
+    """Jobs as this process should see them: in-memory overlaid on disk."""
+    return _merge_jobs(_read_registry(), JOBS)
+
+
 def _persist_jobs() -> None:
+    """Merge in-memory JOBS into the on-disk registry and write atomically.
+
+    Holds the cross-process registry lock for the full read-modify-write so
+    separate workers cannot clobber each other's jobs.
+    """
     _jobs_root().mkdir(parents=True, exist_ok=True)
-    payload = {job_id: asdict(job) for job_id, job in JOBS.items()}
-    _registry_path().write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    with FileLock(_registry_lock_path()):
+        merged = _merge_jobs(_read_registry(), JOBS)
+        target = _registry_path()
+        tmp = target.with_suffix(".json.tmp")
+        tmp.write_text(
+            json.dumps({k: asdict(v) for k, v in merged.items()}, indent=2),
+            encoding="utf-8",
+        )
+        os.replace(tmp, target)
 
 
 def _reconcile_stale_jobs() -> None:
@@ -104,18 +164,7 @@ def _reconcile_stale_jobs() -> None:
 
 
 def _load_jobs() -> None:
-    p = _registry_path()
-    if not p.exists():
-        return
-    try:
-        payload = json.loads(p.read_text(encoding="utf-8"))
-    except Exception:
-        return
-    for job_id, row in payload.items():
-        try:
-            JOBS[job_id] = Job(**row)
-        except TypeError:
-            continue
+    JOBS.update(_read_registry())
     _reconcile_stale_jobs()
 
 
@@ -178,19 +227,27 @@ async def _save_upload(dest: Path, file: UploadFile) -> int:
     except ValueError as e:
         raise HTTPException(status_code=400, detail="Invalid upload path") from e
 
+    # Write to a sibling temp file and rename on success so a failed upload
+    # (oversized or empty) never leaves a partial file at the final path.
+    tmp = dest.with_name(dest.name + ".part")
     size = 0
-    with dest.open("wb") as f:
-        while True:
-            chunk = await file.read(1024 * 1024)
-            if not chunk:
-                break
-            size += len(chunk)
-            if size > MAX_UPLOAD_BYTES:
-                raise HTTPException(status_code=413, detail="File exceeds 200MB limit")
-            f.write(chunk)
-    await file.close()
-    if size == 0:
-        raise HTTPException(status_code=400, detail="Uploaded file is empty")
+    try:
+        with tmp.open("wb") as f:
+            while True:
+                chunk = await file.read(1024 * 1024)
+                if not chunk:
+                    break
+                size += len(chunk)
+                if size > MAX_UPLOAD_BYTES:
+                    raise HTTPException(status_code=413, detail="File exceeds 200MB limit")
+                f.write(chunk)
+        await file.close()
+        if size == 0:
+            raise HTTPException(status_code=400, detail="Uploaded file is empty")
+        os.replace(tmp, dest)
+    except Exception:
+        tmp.unlink(missing_ok=True)
+        raise
     return size
 
 
@@ -261,48 +318,49 @@ def _run_job(
 
     acquired = PIPELINE_LOCK.acquire(blocking=True)
     try:
-        _update_job(job_id, status="running")
-        _append_job_log(job_id, "Job started")
-        root = _project_root()
-        job_root = _jobs_root() / job_id
+        with FileLock(_pipeline_lock_path()):
+            _update_job(job_id, status="running")
+            _append_job_log(job_id, "Job started")
+            root = _project_root()
+            job_root = _jobs_root() / job_id
 
-        def log(msg: str) -> None:
-            _append_job_log(job_id, msg)
+            def log(msg: str) -> None:
+                _append_job_log(job_id, msg)
 
-        prepared_csv = job_root / "prepared" / "ETM_ingest.csv"
-        log("Compiling and cleaning ETM uploads")
-        prepare_etm_for_ingest(
-            etm_paths,
-            supporting_path=supporting_path,
-            out_csv=prepared_csv,
-            distance_path=distance_path,
-            log=log,
-        )
+            prepared_csv = job_root / "prepared" / "ETM_ingest.csv"
+            log("Compiling and cleaning ETM uploads")
+            prepare_etm_for_ingest(
+                etm_paths,
+                supporting_path=supporting_path,
+                out_csv=prepared_csv,
+                distance_path=distance_path,
+                log=log,
+            )
 
-        mapping_path = _build_job_mapping(
-            job_root, agency_id, prepared_csv, supporting_path, stops_dir
-        )
+            mapping_path = _build_job_mapping(
+                job_root, agency_id, prepared_csv, supporting_path, stops_dir
+            )
 
-        log("Running ingest")
-        report = run_ingest(mapping_path, root=root)
-        if not report.get("load_ok", False):
-            blocked = [
-                r.get("id") or r.get("message") or str(r)
-                for r in (report.get("rules") or [])
-                if (r.get("level") or "").upper() == "BLOCK"
-            ]
-            detail = "; ".join(blocked[:8]) if blocked else "data quality checks failed"
-            raise RuntimeError(f"Ingest rejected: {detail}")
+            log("Running ingest")
+            report = run_ingest(mapping_path, root=root)
+            if not report.get("load_ok", False):
+                blocked = [
+                    r.get("id") or r.get("message") or str(r)
+                    for r in (report.get("rules") or [])
+                    if (r.get("level") or "").upper() == "BLOCK"
+                ]
+                detail = "; ".join(blocked[:8]) if blocked else "data quality checks failed"
+                raise RuntimeError(f"Ingest rejected: {detail}")
 
-        log("Running metrics")
-        run_metrics(agency_id, root=root)
+            log("Running metrics")
+            run_metrics(agency_id, root=root)
 
-        result_path = job_root / "result.json"
-        log("Exporting dashboard JSON")
-        _run_export_script(agency_id, result_path)
+            result_path = job_root / "result.json"
+            log("Exporting dashboard JSON")
+            _run_export_script(agency_id, result_path)
 
-        log("Job completed successfully")
-        _update_job(job_id, status="succeeded", result_path=str(result_path), error=None)
+            log("Job completed successfully")
+            _update_job(job_id, status="succeeded", result_path=str(result_path), error=None)
     except Exception as e:
         _append_job_log(job_id, f"Job failed: {e}")
         _update_job(job_id, status="failed", error=str(e))
@@ -416,7 +474,7 @@ def get_job(job_id: str) -> dict[str, Any]:
     if not re.fullmatch(r"[a-f0-9]{32}", job_id):
         raise HTTPException(status_code=404, detail="Job not found")
     with JOBS_LOCK:
-        job = JOBS.get(job_id)
+        job = _registry_view().get(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
 
@@ -432,7 +490,7 @@ def list_jobs(limit: int = 20) -> dict[str, Any]:
     if limit > 100:
         limit = 100
     with JOBS_LOCK:
-        jobs = sorted(JOBS.values(), key=lambda j: j.created_at, reverse=True)[:limit]
+        jobs = sorted(_registry_view().values(), key=lambda j: j.created_at, reverse=True)[:limit]
     return {"jobs": [asdict(j) for j in jobs]}
 
 
@@ -441,7 +499,7 @@ def get_job_result(job_id: str) -> JSONResponse:
     if not re.fullmatch(r"[a-f0-9]{32}", job_id):
         raise HTTPException(status_code=404, detail="Job not found")
     with JOBS_LOCK:
-        job = JOBS.get(job_id)
+        job = _registry_view().get(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
     if job.status != "succeeded" or not job.result_path:
