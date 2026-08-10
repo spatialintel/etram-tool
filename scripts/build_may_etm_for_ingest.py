@@ -15,6 +15,7 @@ sys.path.insert(0, str(ROOT))
 
 from etram.ingest.stage_km import load_od_distances, stage_km_for_pair  # noqa: E402
 from etram.ingest.stop_map import build_stop_name_map  # noqa: E402
+from etram.ingest.upload_prepare import resolve_trip_numbers  # noqa: E402
 
 MAY = ROOT / "Input files" / "May Data"
 UPLOAD = MAY / "Upload"
@@ -24,12 +25,6 @@ OUT = WORKING / "ETM_Bhavnagar_May_2026_ingest.csv"
 HOD = WORKING / "Supporting data by HOD.xlsx"
 DIST = UPLOAD / "100 FLEET(STOP TO STOP DISTANCE)_29.07.2026.xlsx"
 MAP_CSV = WORKING / "stop_name_to_matrix_abbr.csv"
-
-
-def _trip_no_int(series: pd.Series) -> pd.Series:
-    """Map opaque Trip Number strings to stable positive ints (ingest expects Int64)."""
-    codes, _ = pd.factorize(series.astype(str), sort=False)
-    return pd.Series(codes + 1, index=series.index, dtype="int64")
 
 
 def main() -> None:
@@ -79,7 +74,7 @@ def main() -> None:
         f"stage_km: {100 * has.mean():.1f}%"
     )
 
-    trip_no = _trip_no_int(raw["Trip Number"])
+    trip_no = resolve_trip_numbers(raw)
 
     out = pd.DataFrame(
         {
