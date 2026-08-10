@@ -66,8 +66,93 @@ def detect_schema(columns: list[str]) -> str:
 
 
 def _trip_no_int(series: pd.Series) -> pd.Series:
+    """Legacy helper — prefer :func:`resolve_trip_numbers`."""
     codes, _ = pd.factorize(series.astype(str), sort=False)
     return pd.Series(codes + 1, index=series.index, dtype="int64")
+
+
+def _is_blank_label(series: pd.Series) -> pd.Series:
+    s = series.astype("string").str.strip()
+    return s.isna() | s.eq("") | s.str.lower().eq("nan") | s.str.lower().eq("<na>")
+
+
+def resolve_trip_numbers(df: pd.DataFrame, log: LogFn | None = None) -> pd.Series:
+    """Resolve integer Trip No. without merging unrelated trips.
+
+    - Keep real numeric trip numbers when present.
+    - Map non-numeric labels to a stable high id range.
+    - For blanks: within (Date, Bus, Route), separate by Trip Start Time, else
+      Ticket Issue Time; if times are also blank, one shared synthetic trip for
+      that bus–day–route (never one id for all blanks across the file).
+    """
+    n = len(df)
+    if "Trip Number" in df.columns:
+        raw = df["Trip Number"]
+    elif "Conductor Trip Number" in df.columns:
+        raw = df["Conductor Trip Number"]
+    else:
+        raw = pd.Series([pd.NA] * n, index=df.index)
+
+    blank = _is_blank_label(raw)
+    numeric = pd.to_numeric(raw, errors="coerce")
+    trip_no = numeric.astype("Int64")
+
+    # Non-blank, non-numeric labels (e.g. "T-1") → stable codes in a high range.
+    need_str = ~blank & trip_no.isna()
+    if need_str.any():
+        labels = raw.astype("string").str.strip()[need_str]
+        codes, _ = pd.factorize(labels, sort=False)
+        trip_no.loc[need_str] = (codes + 1_000_000).astype("int64")
+
+    still_blank = trip_no.isna()
+    kept = int((~still_blank).sum())
+    filled_time = 0
+    filled_unknown = 0
+
+    if still_blank.any():
+        date = pd.to_datetime(df["Date"], errors="coerce").dt.normalize()
+        bus = (
+            df["Bus Number"].astype("string").str.strip()
+            if "Bus Number" in df.columns
+            else pd.Series(["?"], index=df.index, dtype="string")
+        )
+        route = (
+            df["Route Number"].astype("string").str.strip()
+            if "Route Number" in df.columns
+            else pd.Series(["?"], index=df.index, dtype="string")
+        )
+        group_key = (
+            date.astype("string")
+            + "|"
+            + bus.fillna("?")
+            + "|"
+            + route.fillna("?")
+        )
+
+        time_key = pd.Series(pd.NA, index=df.index, dtype="string")
+        if "Trip Start Time" in df.columns:
+            start = pd.to_datetime(df["Trip Start Time"], errors="coerce")
+            time_key = start.dt.strftime("%Y-%m-%d %H:%M:%S").astype("string")
+        if "Ticket Issue Time" in df.columns:
+            issue = pd.to_datetime(df["Ticket Issue Time"], errors="coerce")
+            issue_s = issue.dt.strftime("%Y-%m-%d %H:%M:%S").astype("string")
+            time_key = time_key.fillna(issue_s)
+
+        sub = still_blank
+        has_time = sub & time_key.notna()
+        no_time = sub & time_key.isna()
+        synth = group_key.astype("string") + "|" + time_key.fillna("__unknown__").astype("string")
+        codes, _ = pd.factorize(synth[sub], sort=False)
+        trip_no.loc[sub] = (codes + 2_000_000).astype("int64")
+        filled_time = int(has_time.sum())
+        filled_unknown = int(no_time.sum())
+
+    _log(
+        log,
+        f"Trip No.: kept {kept}; filled {filled_time} from start/issue time; "
+        f"{filled_unknown} shared unknown within bus–day–route",
+    )
+    return trip_no.astype("Int64")
 
 
 def conductor_to_april_schema(
@@ -145,8 +230,7 @@ def conductor_to_april_schema(
     else:
         stage_s = pd.Series([pd.NA] * len(df), index=df.index, dtype="Float64")
 
-    trip_src = df["Trip Number"] if "Trip Number" in df.columns else df.get("Conductor Trip Number")
-    trip_no = _trip_no_int(trip_src) if trip_src is not None else pd.Series(range(1, len(df) + 1))
+    trip_no = resolve_trip_numbers(df, log=log)
 
     route_no = df["Route Number"].astype("string").str.strip()
     out = pd.DataFrame(
