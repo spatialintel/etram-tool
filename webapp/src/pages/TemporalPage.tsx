@@ -51,12 +51,16 @@ function slotSortKey(label: string): number {
   return Number(m[1]) * 60 + Number(m[2])
 }
 
+/**
+ * PBIX Headway (mins): Selected time interval_min / COUNT(bus_trip_key).
+ * Span is first→last hour window in minutes; divisor is trip count (not n−1).
+ */
 function headwayFrom(hours: number[], trips: number, days: number): number | null {
-  if (hours.length < 2 || trips <= 0 || days <= 0) return null
+  if (hours.length < 1 || trips <= 0 || days <= 0) return null
   const span = (Math.max(...hours) - Math.min(...hours)) * 60
   const departuresPerDay = trips / days
-  if (departuresPerDay < 2) return null
-  return Math.round(span / (departuresPerDay - 1))
+  if (departuresPerDay < 1) return null
+  return Math.round(span / departuresPerDay)
 }
 
 export function TemporalPage({

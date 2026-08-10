@@ -61,6 +61,10 @@ Index = rank by value ascending (1..48)
 | Selected time interval1 | MAX(Time Slot[End Time1]) − MIN(Time Slot[Time]) *(slicer-driven)* |
 | Headway (mins)1 | same pattern using interval1 |
 
+Note: PBIX divides by **COUNT** (n departures), not (n−1). That matches Python
+`kpi_headway_mins` and Temporal peak/off-peak headway. Mean inter-departure
+gap would be span/(n−1); do not mix the two.
+
 ---
 
 ## D. Routewise_summary columns & measures

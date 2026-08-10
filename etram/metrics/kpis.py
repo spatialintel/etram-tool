@@ -98,7 +98,11 @@ def kpi_vehicle_km_per_bus(route_day: pd.DataFrame) -> float | None:
 
 
 def kpi_headway_mins(trip_summary: pd.DataFrame) -> float | None:
-    """PBIX: Selected time interval_min / COUNT(bus_trip_key)."""
+    """PBIX Headway (mins) = Selected time interval_min / COUNT(bus_trip_key).
+
+    Span = MAX(timeslot_2) − MIN(timeslot_1). Divisor is trip count (n), not (n−1).
+    True mean inter-departure interval would use (n−1); that is not the PBIX measure.
+    """
     if trip_summary.empty:
         return None
     t1 = pd.to_datetime(trip_summary["timeslot_1"], errors="coerce").dropna()

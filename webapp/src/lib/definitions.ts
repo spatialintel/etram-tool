@@ -123,9 +123,9 @@ export const DEFINITIONS = {
     label: 'Headway',
     unit: 'min',
     formula: 'selected time interval (min) ÷ trip count',
-    how: 'PBIX Tripwise_Summary: (max trip-start timeslot end − min trip-start timeslot) in minutes, divided by the number of trips in the filter. Timeslots are floored to 30 minutes. On Temporal, peak/off-peak headway uses hourly span ÷ (trips per day − 1) within peak or off-peak hours.',
-    source: 'kpi_daily (Python) / Temporal page estimate',
-    note: 'Network-wide filter context mixes routes; for route comparisons use Temporal with a single route selected.',
+    how: 'PBIX Tripwise_Summary Headway (mins): (MAX(Timeslot_2) − MIN(timeslot_1)) in minutes, divided by COUNT(bus_trip_key). Timeslots are floored to 30 minutes. Overview/Efficiency use this from kpi_daily. Temporal peak/off-peak uses the same divisor (span ÷ trip count) on hourly bins.',
+    source: 'kpi_daily ← etram.metrics.kpis.kpi_headway_mins (PBIX Headway mins)',
+    note: 'This is the PBIX measure (span ÷ n), not mean gap between successive departures (span ÷ (n−1)). Network-wide filters mix routes; for route comparisons select one route on Temporal.',
   },
   vehicle_km: {
     label: 'Vehicle-km',
