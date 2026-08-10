@@ -117,9 +117,29 @@ def load_kml_route_lengths(path: Path) -> dict[str, float]:
     return out
 
 
-def annotate_route_columns(df, *, description_col: str = "Route Description"):
-    """Fill Route Number + helper columns from Route Description."""
+def is_blank_route(series: "pd.Series") -> "pd.Series":
+    """True where Route Number is missing or empty / 'nan'."""
     import pandas as pd
+
+    s = series.astype("string")
+    return s.isna() | s.str.strip().eq("") | s.str.strip().str.lower().eq("nan")
+
+
+def annotate_route_columns(
+    df,
+    *,
+    description_col: str = "Route Description",
+    only_blank: bool = True,
+):
+    """Fill Route Number (+ helper cols) from Route Description.
+
+    By default only blank Route Number cells are filled so existing ETM codes
+    are never overwritten. Pass ``only_blank=False`` to replace the whole column.
+    """
+    import pandas as pd
+
+    if description_col not in df.columns:
+        raise ValueError(f"Missing column {description_col!r}")
 
     codes, firsts, lasts, kmls = [], [], [], []
     for desc in df[description_col]:
@@ -129,9 +149,21 @@ def annotate_route_columns(df, *, description_col: str = "Route Description"):
         lasts.append(last)
         kmls.append(kml_code_for(code, first, last))
 
+    parsed = pd.Series(codes, index=df.index, dtype="string")
     out = df.copy()
-    out["Route Number"] = pd.Series(codes, index=out.index, dtype="string")
+    if "Route Number" not in out.columns:
+        out["Route Number"] = parsed
+        filled = int(parsed.notna().sum())
+    elif only_blank:
+        blank = is_blank_route(out["Route Number"])
+        out.loc[blank, "Route Number"] = parsed.loc[blank]
+        filled = int((blank & parsed.notna()).sum())
+    else:
+        out["Route Number"] = parsed
+        filled = int(parsed.notna().sum())
+
     out["route_first_stop"] = pd.Series(firsts, index=out.index, dtype="string")
     out["route_last_stop"] = pd.Series(lasts, index=out.index, dtype="string")
     out["kml_route_code"] = pd.Series(kmls, index=out.index, dtype="string")
+    out.attrs["route_numbers_filled"] = filled
     return out

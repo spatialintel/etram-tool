@@ -12,7 +12,7 @@ from typing import Callable
 
 import pandas as pd
 
-from etram.ingest.route_map import annotate_route_columns
+from etram.ingest.route_map import annotate_route_columns, is_blank_route
 from etram.ingest.stage_km import load_od_distances, stage_km_for_pair
 from etram.ingest.stop_map import build_stop_name_map
 
@@ -82,10 +82,20 @@ def conductor_to_april_schema(
     if "Route Description" not in df.columns:
         raise ValueError("Conductor Report missing Route Description")
 
-    blank_route = df.get("Route Number")
-    if blank_route is None or blank_route.isna().mean() > 0.5:
-        _log(log, "Filling Route Number from Route Description")
-        df = annotate_route_columns(df, description_col="Route Description")
+    # Always fill blank Route Numbers from description; never overwrite existing codes.
+    before_blank = (
+        int(is_blank_route(df["Route Number"]).sum())
+        if "Route Number" in df.columns
+        else len(df)
+    )
+    df = annotate_route_columns(df, description_col="Route Description", only_blank=True)
+    filled = int(df.attrs.get("route_numbers_filled", 0))
+    after_blank = int(is_blank_route(df["Route Number"]).sum())
+    _log(
+        log,
+        f"Route Number fill: {before_blank} blank → filled {filled}; "
+        f"{after_blank} still blank after parse",
+    )
 
     names = sorted(
         set(df["Pass Origin"].dropna().astype(str).str.strip())
@@ -138,11 +148,12 @@ def conductor_to_april_schema(
     trip_src = df["Trip Number"] if "Trip Number" in df.columns else df.get("Conductor Trip Number")
     trip_no = _trip_no_int(trip_src) if trip_src is not None else pd.Series(range(1, len(df) + 1))
 
+    route_no = df["Route Number"].astype("string").str.strip()
     out = pd.DataFrame(
         {
             "Date": pd.to_datetime(df["Date"], errors="coerce").dt.strftime("%Y-%m-%d"),
             "Ticket No.": df["Ticket Number"],
-            "Route No.": df["Route Number"].astype(str).str.strip(),
+            "Route No.": route_no,
             "Route description": df["Route Description"],
             "Depot": "Depot",
             "Vehicle/ Schedule no.": df["Bus Number"],
@@ -166,12 +177,16 @@ def conductor_to_april_schema(
             "Gender": df["Gender"] if "Gender" in df.columns else pd.NA,
         }
     )
-    out = out[
-        out["Date"].notna()
-        & out["Route No."].notna()
-        & (out["Route No."] != "")
-        & (out["Route No."].str.lower() != "nan")
-    ]
+    n_before_route_filter = len(out)
+    route_ok = ~is_blank_route(out["Route No."])
+    dropped_no_route = int((~route_ok).sum())
+    out = out[out["Date"].notna() & route_ok]
+    if dropped_no_route:
+        _log(
+            log,
+            f"Dropped {dropped_no_route}/{n_before_route_filter} rows with blank Route No. "
+            "after fill (unparseable Route Description)",
+        )
     return out.reset_index(drop=True)
 
 
