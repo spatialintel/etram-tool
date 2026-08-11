@@ -345,7 +345,7 @@ def _run_job(
             report = run_ingest(mapping_path, root=root)
             if not report.get("load_ok", False):
                 blocked = [
-                    r.get("id") or r.get("message") or str(r)
+                    r.get("message") or r.get("id") or str(r)
                     for r in (report.get("rules") or [])
                     if (r.get("level") or "").upper() == "BLOCK"
                 ]

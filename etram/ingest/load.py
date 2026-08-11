@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import math
 import re
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 import xml.etree.ElementTree as ET
@@ -34,10 +35,24 @@ def _resolve(root: Path, rel: str) -> Path:
     return p if p.is_absolute() else (root / p)
 
 
+class MissingColumnsError(KeyError):
+    """Raised by `_rename` when required source columns are absent from a sheet.
+
+    Subclasses KeyError so any existing `except KeyError` still works; carries
+    `missing`/`have` as structured data so `run_ingest` can turn this into a
+    DQ rule instead of a raw traceback.
+    """
+
+    def __init__(self, missing: list[str], have: list[str]):
+        self.missing = missing
+        self.have = have
+        super().__init__(f"Missing source columns: {missing}. Have: {have}")
+
+
 def _rename(df: pd.DataFrame, mapping: dict[str, str]) -> pd.DataFrame:
     missing = [c for c in mapping if c not in df.columns]
     if missing:
-        raise KeyError(f"Missing source columns: {missing}. Have: {list(df.columns)}")
+        raise MissingColumnsError(missing, list(df.columns))
     out = df[list(mapping.keys())].rename(columns=mapping)
     return out
 
@@ -303,6 +318,7 @@ def run_ingest(mapping_path: Path, root: Path | None = None) -> dict[str, Any]:
     root = root or _project_root()
     cfg = load_mapping(mapping_path)
     agency_id = cfg["agency_id"]
+    out_dir = root / "data" / "canonical" / agency_id
 
     agencies = pd.DataFrame(
         [
@@ -313,11 +329,38 @@ def run_ingest(mapping_path: Path, root: Path | None = None) -> dict[str, Any]:
             }
         ]
     )
-    stops = load_stops(cfg, root)
-    routes = load_routes(cfg, root)
-    vehicles = load_vehicles(cfg, root)
-    tickets = load_tickets(cfg, root)
-    stop_sequence = load_stop_sequence(cfg, root)
+
+    # Each sheet is loaded independently so one missing-column mapping doesn't
+    # hide problems in the others — the user fixes every sheet in one pass
+    # instead of discovering failures one re-upload at a time. Any exception
+    # other than MissingColumnsError (bad file path, corrupt KML, etc.) still
+    # propagates immediately — this only softens the specific, well-understood
+    # "column mapping doesn't match the header" failure.
+    loaders: list[tuple[str, Any]] = [
+        ("stops", lambda: load_stops(cfg, root)),
+        ("routes", lambda: load_routes(cfg, root)),
+        ("vehicles", lambda: load_vehicles(cfg, root)),
+        ("tickets", lambda: load_tickets(cfg, root)),
+        ("stop_sequence", lambda: load_stop_sequence(cfg, root)),
+    ]
+    loaded: dict[str, pd.DataFrame] = {}
+    column_failures: list[dict[str, Any]] = []
+    for name, loader in loaders:
+        try:
+            loaded[name] = loader()
+        except MissingColumnsError as e:
+            column_failures.append({"table": name, "missing": e.missing, "have": e.have})
+
+    if column_failures:
+        report = _required_columns_report(agency_id, loaded, column_failures)
+        write_dq_report(report, out_dir / "dq_report.json")
+        return report
+
+    stops = loaded["stops"]
+    routes = loaded["routes"]
+    vehicles = loaded["vehicles"]
+    tickets = loaded["tickets"]
+    stop_sequence = loaded["stop_sequence"]
     time_slots = make_time_slots()
 
     tables = {
@@ -330,7 +373,6 @@ def run_ingest(mapping_path: Path, root: Path | None = None) -> dict[str, Any]:
         "time_slots": time_slots,
     }
 
-    out_dir = root / "data" / "canonical" / agency_id
     write_parquet_tables(tables, out_dir)
 
     report = build_dq_report(agency_id, tables)
@@ -344,3 +386,41 @@ def run_ingest(mapping_path: Path, root: Path | None = None) -> dict[str, Any]:
         encoding="utf-8",
     )
     return report
+
+
+def _required_columns_report(
+    agency_id: str, loaded: dict[str, pd.DataFrame], failures: list[dict[str, Any]]
+) -> dict[str, Any]:
+    """Degraded dq_report.json for when one or more sheets are missing mapped
+    columns. Same top-level schema as build_dq_report()'s return (agency_id,
+    tables, rules, feature_gates, load_ok) so every existing consumer — job
+    status in etram/__init__.py, the ingest CLI, the export script — reads it
+    exactly the same way whether ingest fully ran or was rejected here.
+    """
+    rules = [
+        {
+            "table": f["table"],
+            "id": "required_columns_present",
+            "level": "BLOCK",
+            "value": f["missing"],
+            "message": f"Missing source columns: {f['missing']}. Have: {f['have']}",
+        }
+        for f in failures
+    ]
+    tables_summary = {
+        name: {"rows": len(loaded[name])} if name in loaded else {"rows": None}
+        for name in ("stops", "routes", "vehicles", "tickets", "stop_sequence")
+    }
+    return {
+        "agency_id": agency_id,
+        "loaded_at": datetime.now(timezone.utc).isoformat(),
+        "tables": tables_summary,
+        "rules": rules,
+        "feature_gates": {
+            "gender_charts": False,
+            "driver_speed": False,
+            "conductor_revenue": False,
+            "ba_maps": False,
+        },
+        "load_ok": False,
+    }
