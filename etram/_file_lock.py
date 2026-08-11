@@ -70,13 +70,24 @@ class FileLock:
 
     def _lock_windows(self) -> None:
         import msvcrt
+        import time
         try:
             if os.fstat(self._fd).st_size == 0:
                 os.write(self._fd, b"\x00")
         except OSError:
             pass
         os.lseek(self._fd, 0, os.SEEK_SET)
-        msvcrt.locking(self._fd, msvcrt.LK_LOCK, 1)
+        # msvcrt.LK_LOCK only retries for ~10s before raising OSError, which
+        # would turn a contended lock into a spurious job failure. Loop with
+        # LK_NBLCK (non-blocking) instead so Windows blocks indefinitely, like
+        # flock does on POSIX. A crashed holder releases the lock when its
+        # process exits, so an unbounded wait cannot strand permanently.
+        while True:
+            try:
+                msvcrt.locking(self._fd, msvcrt.LK_NBLCK, 1)
+                return
+            except OSError:
+                time.sleep(0.1)
 
     def _unlock_windows(self) -> None:
         import msvcrt

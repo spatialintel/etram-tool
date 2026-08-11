@@ -53,7 +53,11 @@ Do not use Python/Railpack auto-detection for this mixed Python/Node repo.
 1. Connect GitHub and select `spatialintel/etram-tool`, branch `main`.
 2. Confirm builder is **Dockerfile** (root), not Railpack.
 3. After first deploy succeeds, generate a public domain.
-4. Attach a volume mounted at `/app/data` so job uploads survive restarts.
+4. Attach a volume mounted at `/app/data` so job uploads survive restarts. The
+   cross-process lock files (`data/.pipeline.lock`, `data/jobs/.registry.lock`)
+   live under the same mount — a shared volume is also what lets multiple
+   replicas/workers serialize; without it the file locks only serialize
+   processes on a single host.
 5. Prefer **≥2 GB RAM** for full-month May packs (trial OOM/restarts otherwise).
 
 Endpoints:
@@ -74,7 +78,7 @@ file lock on `data/.pipeline.lock` (see `etram/_file_lock.py`). The job
 registry is merged across workers (newer `updated_at` wins) and read through
 `_registry_view()`, so separate workers can see and persist each other's jobs.
 Single uvicorn worker is the supported deployment; the file locks are a safety
-net for the case where multiple workers are run anyway. Known multi-worker
+net, and one worker is still preferred even with them. Known multi-worker
 gap: `_reconcile_stale_jobs` assumes one owner and will mark another worker's
 in-flight jobs as failed on restart. Move job state to an external queue/DB
 before scaling horizontally.
