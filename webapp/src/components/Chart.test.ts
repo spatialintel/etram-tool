@@ -123,6 +123,49 @@ describe('builders', () => {
     expect(series[1].itemStyle?.color).toBe('#1B7A4E')
   })
 
+  it('bulletOption with bands paints segment WIDTHS, not cumulative values', () => {
+    const opt = bulletOption(45, 0, {
+      target: 70,
+      bands: [
+        { to: 30, color: '#FEE2E2' },
+        { to: 70, color: '#FEF3C7' },
+        { to: 100, color: '#E8F7EF' },
+      ],
+    })
+    const series = (Array.isArray(opt.series) ? opt.series : [opt.series]) as Array<{
+      data: number[]
+      stack?: string
+      itemStyle?: { color: string }
+      markLine?: { data: Array<{ xAxis: number }> }
+    }>
+    // 3 stacked background segments + 1 actual-value bar
+    expect(series).toHaveLength(4)
+    expect(series[0]).toMatchObject({ data: [30], stack: 'bands', itemStyle: { color: '#FEE2E2' } })
+    expect(series[1]).toMatchObject({ data: [40], stack: 'bands', itemStyle: { color: '#FEF3C7' } }) // 70-30, not 70
+    expect(series[2]).toMatchObject({ data: [30], stack: 'bands', itemStyle: { color: '#E8F7EF' } }) // 100-70, not 100
+    // actual-value bar is the real measure, unstacked, no fixed green
+    expect(series[3].data[0]).toBe(45)
+    expect(series[3].stack).toBeUndefined()
+    // target tick renders as a markLine at the real benchmark, not the data max
+    expect(series[3].markLine?.data[0]).toEqual({ xAxis: 70 })
+  })
+
+  it('bulletOption stretches the last band to the axis ceiling when actual exceeds every defined band', () => {
+    const opt = bulletOption(95, 0, {
+      bands: [
+        { to: 30, color: '#FEE2E2' },
+        { to: 70, color: '#FEF3C7' },
+      ],
+    })
+    const series = (Array.isArray(opt.series) ? opt.series : [opt.series]) as Array<{ data: number[] }>
+    // ceil = max(actual=95, bandCeil=70) = 95. series[0] = band 0..30 (width 30).
+    // series[1] is the LAST band, stretched from 30 to ceil=95 (width 65), not
+    // left at its nominal 30->70 width of 40 — otherwise a route at 95% would
+    // show an unpainted gap in the background from 70 to 95.
+    expect(series[0].data[0]).toBe(30)
+    expect(series[1].data[0]).toBe(65)
+  })
+
   it('ranks share bars with the largest at the top', () => {
     const opt = rankedShareBarOption(
       [

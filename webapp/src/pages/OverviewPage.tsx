@@ -16,12 +16,14 @@ import {
   Button,
   Callout,
   Card,
+  DataTable,
   EmptyState,
   InfoTip,
   ListRow,
   StatCard,
   StatusBadge,
 } from '../components/ui'
+import type { StatusBadgeTone } from '../components/ui'
 import { aggregateDaily, aggregateRoutes, periodTotals } from '../lib/aggregate'
 import { applyFilters, splitByComparison } from '../lib/filters'
 import type { FilterState } from '../lib/filters'
@@ -56,6 +58,39 @@ function meanKpi(rows: KpiDailyRow[], key: keyof KpiDailyRow): number | null {
 
 function fmtOrDash(n: number | null, fmt: (v: number) => string): string {
   return n == null ? '\u2014' : fmt(n)
+}
+
+// dq_rules whose ids end this way carry a 0-1 fraction; everything else is a
+// plain count (or, for ticket_dates_missing_sequence only, a list of dates).
+const FRACTION_RULE_SUFFIXES = ['_pct', '_coverage']
+const LEVEL_TONE: Record<string, StatusBadgeTone> = { BLOCK: 'down', WARN: 'warn', INFO: 'neutral' }
+const LEVEL_RANK: Record<string, number> = { BLOCK: 0, WARN: 1, INFO: 2 }
+
+// The row-level outlier checks added alongside this panel — these are the
+// ones worth a headline number. Coverage/null-% rules (gender_coverage etc.)
+// are real signals too, but they're already surfaced via feature gate chips
+// and tend to be a known, expected trait of a given agency's source files
+// rather than something to act on per-load; folding them into the same
+// count would bury the rows that actually need a look.
+const ACTIONABLE_OUTLIER_IDS = new Set([
+  'negative_revenue',
+  'negative_stage_km',
+  'zero_passenger_positive_revenue',
+  'stage_km_exceeds_route_length',
+  'duplicate_ticket_per_vehicle_day',
+  'stop_abbr_not_in_stops',
+  'duplicate_stop_no',
+])
+
+export function fmtRuleValue(id: string | undefined, value: unknown): string {
+  if (Array.isArray(value)) {
+    return value.length === 0 ? '0' : `${value.length} \u2014 ${value.slice(0, 3).join(', ')}${value.length > 3 ? '\u2026' : ''}`
+  }
+  if (typeof value === 'number') {
+    const isFraction = FRACTION_RULE_SUFFIXES.some((s) => id?.endsWith(s))
+    return isFraction ? fmtPct(value) : fmtInt(value)
+  }
+  return value == null ? '\u2014' : String(value)
 }
 
 export function OverviewPage({
@@ -234,6 +269,28 @@ export function OverviewPage({
     return { covered, totalDays, pct: covered / totalDays }
   }, [data.meta, data.daily])
 
+  const dqRulesSorted = useMemo(() => {
+    const rules = data.meta?.dq_rules ?? []
+    return [...rules].sort((a, b) => {
+      const rankDiff = (LEVEL_RANK[a.level ?? ''] ?? 3) - (LEVEL_RANK[b.level ?? ''] ?? 3)
+      if (rankDiff !== 0) return rankDiff
+      const tableDiff = (a.table ?? '').localeCompare(b.table ?? '')
+      if (tableDiff !== 0) return tableDiff
+      return (a.id ?? '').localeCompare(b.id ?? '')
+    })
+  }, [data.meta])
+
+  const dqSummary = useMemo(() => {
+    const blocking = dqRulesSorted.filter((r) => r.level === 'BLOCK')
+    const actionable = dqRulesSorted.filter((r) => {
+      if (r.level !== 'WARN' || !r.id || !ACTIONABLE_OUTLIER_IDS.has(r.id)) return false
+      const v = r.value
+      return typeof v === 'number' ? v > 0 : Array.isArray(v) ? v.length > 0 : false
+    })
+    const flaggedRows = actionable.reduce((sum, r) => sum + (typeof r.value === 'number' ? r.value : 0), 0)
+    return { blocking, actionable, flaggedRows }
+  }, [dqRulesSorted])
+
   const revenueShareOpt = useMemo(
     (): EChartsOption => rankedShareBarOption(revenueShare, { unit: 'money', valueName: 'Revenue' }),
     [revenueShare],
@@ -374,6 +431,16 @@ export function OverviewPage({
       {isV2 && loadOk === false && (
         <Callout tone="warn" title="Data quality gate failed">
           The last load reported load_ok=false. Review Data Quality after re-upload.
+        </Callout>
+      )}
+
+      {isV2 && loadOk !== false && dqSummary.actionable.length > 0 && (
+        <Callout
+          tone="warn"
+          title={`${fmtInt(dqSummary.flaggedRows)} row${dqSummary.flaggedRows === 1 ? '' : 's'} flagged across ${dqSummary.actionable.length} check${dqSummary.actionable.length === 1 ? '' : 's'}`}
+          action={{ label: 'Review checks', onClick: () => setDrill('health') }}
+        >
+          Data still loaded and every row is counted in the metrics below — these are outliers worth a look, not blocked data.
         </Callout>
       )}
 
@@ -943,6 +1010,7 @@ export function OverviewPage({
         onClose={() => setDrill(null)}
         title="Data health checks"
         subtitle="What the last ingest verified"
+        width={720}
         stats={[
           { label: 'Days in view', value: `${totals.days} of ${data.daily.length}` },
           {
@@ -952,7 +1020,7 @@ export function OverviewPage({
           },
           { label: 'Schema version', value: `v${data.meta?.schema_version ?? 1}` },
         ]}
-        note="Feature gates switch charts off when the underlying column is missing or too sparse to trust, rather than showing a chart built on partial data."
+        note="Feature gates switch charts off when the underlying column is missing or too sparse to trust, rather than showing a chart built on partial data. All rows below are still counted in every metric on this dashboard — WARN and INFO flag rows for review, they don't drop or fix anything."
       >
         <BreakdownTable
           caption="Feature gates"
@@ -965,6 +1033,49 @@ export function OverviewPage({
             gate: key.replace(/_/g, ' '),
             state: on ? 'On' : 'Off',
           }))}
+        />
+
+        <div className="breakdown-section-title" style={{ marginTop: 20 }}>
+          Data quality checks ({dqRulesSorted.length})
+        </div>
+        <DataTable
+          rows={dqRulesSorted}
+          rowKey={(r, i) => `${r.table ?? i}:${r.id ?? i}`}
+          searchable
+          exportName="dq_rules"
+          pageSize={50}
+          stickyHeader
+          emptyMessage="No DQ report on this load."
+          columns={[
+            {
+              key: 'level',
+              header: 'Level',
+              sortable: true,
+              format: (v) => (
+                <StatusBadge tone={LEVEL_TONE[String(v)] ?? 'neutral'}>{String(v ?? '\u2014')}</StatusBadge>
+              ),
+            },
+            { key: 'table', header: 'Table', sortable: true },
+            {
+              key: 'id',
+              header: 'Check',
+              sortable: true,
+              format: (v) => String(v ?? '').replace(/_/g, ' '),
+            },
+            {
+              key: 'value',
+              header: 'Value',
+              align: 'right',
+              sortable: true,
+              numeric: false,
+              format: (v, row) => fmtRuleValue(row.id, v),
+            },
+            {
+              key: 'message',
+              header: 'Note',
+              format: (v) => (v ? String(v) : '\u2014'),
+            },
+          ]}
         />
       </BreakdownDrawer>
     </div>

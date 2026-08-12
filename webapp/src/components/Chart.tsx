@@ -1170,42 +1170,111 @@ export function stackedPanelsOption(opts: {
 }
 
 /**
- * Compact bar for small-multiple grids: track + actual. Shared scale from caller.
+ * Compact bar for small-multiple grids: track + actual, optionally an actual
+ * bullet chart when `target`/`bands` are supplied — a target tick (markLine)
+ * and qualitative poor/fair/good background zones instead of a plain track.
+ * With neither, the output is unchanged from the original 2-series shape.
  */
 export function bulletOption(
   actual: number,
   max: number,
-  opts?: { format?: (v: number) => string },
+  opts?: {
+    format?: (v: number) => string
+    /** Vertical reference tick, e.g. a sourced benchmark value. */
+    target?: number
+    /** Ascending qualitative background zones (poor→good), each an upper bound + color. */
+    bands?: { to: number; color: string }[]
+  },
 ): EChartsOption {
-  const ceil = Math.max(max, actual, 1)
   const fmt = opts?.format ?? ((v: number) => fmtNum(v, 1))
-  return {
-    tooltip: {
-      trigger: 'item',
-      formatter: () => `Load factor: <b>${fmt(actual)}</b>`,
-    },
+  const target = opts?.target
+  const bands = opts?.bands
+  const bandCeil = bands && bands.length > 0 ? bands[bands.length - 1].to : 0
+  const ceil = Math.max(max, actual, target ?? 0, bandCeil, 1)
+
+  const tooltipFormatter = () =>
+    target != null
+      ? `Load factor: <b>${fmt(actual)}</b> \u00b7 target ${fmt(target)}`
+      : `Load factor: <b>${fmt(actual)}</b>`
+
+  const targetMarkLine =
+    target != null
+      ? {
+          symbol: 'none' as const,
+          silent: true,
+          animation: false,
+          lineStyle: { color: '#111827', width: 2, type: 'solid' as const },
+          label: { show: false },
+          data: [{ xAxis: target }],
+        }
+      : undefined
+
+  const shared = {
+    tooltip: { trigger: 'item' as const, formatter: tooltipFormatter },
     grid: { left: 4, right: 44, top: 10, bottom: 10, containLabel: true },
-    xAxis: {
-      type: 'value',
-      max: ceil,
-      show: false,
-    },
-    yAxis: { type: 'category', data: [''], show: false },
+    xAxis: { type: 'value' as const, max: ceil, show: false },
+    yAxis: { type: 'category' as const, data: [''], show: false },
+  }
+
+  if (!bands || bands.length === 0) {
+    // Unchanged from the pre-existing shape (same series count/colors) when
+    // called without bands, so plain track+actual usage is unaffected.
+    return {
+      ...shared,
+      series: [
+        { type: 'bar', data: [ceil], barWidth: 16, itemStyle: { color: '#F1F3F5', borderRadius: 3 }, silent: true, z: 1 },
+        {
+          type: 'bar',
+          data: [actual],
+          barWidth: 16,
+          barGap: '-100%',
+          itemStyle: { color: '#1B7A4E', borderRadius: 3 },
+          label: {
+            show: true,
+            position: 'right',
+            distance: 6,
+            fontSize: 11,
+            fontWeight: 600,
+            color: '#374151',
+            formatter: () => fmt(actual),
+          },
+          markLine: targetMarkLine,
+          z: 2,
+        },
+      ],
+    }
+  }
+
+  // Qualitative bands as stacked background segments — each series' `data`
+  // is the segment's WIDTH (to - previous band's to), not a cumulative
+  // value, so stacking them left-to-right paints consecutive colored zones
+  // across the full 0..ceil range. The last segment is stretched to `ceil`
+  // so the background never falls short if the actual value exceeds every
+  // defined band.
+  const segments = bands.map((b, i) => {
+    const lo = i === 0 ? 0 : bands[i - 1].to
+    const hi = i === bands.length - 1 ? Math.max(b.to, ceil) : b.to
+    return { width: Math.max(0, hi - lo), color: b.color }
+  })
+
+  return {
+    ...shared,
     series: [
-      {
-        type: 'bar',
-        data: [ceil],
+      ...segments.map((s) => ({
+        type: 'bar' as const,
+        stack: 'bands',
+        data: [s.width],
         barWidth: 16,
-        itemStyle: { color: '#F1F3F5', borderRadius: 3 },
+        itemStyle: { color: s.color },
         silent: true,
         z: 1,
-      },
+      })),
       {
         type: 'bar',
         data: [actual],
-        barWidth: 16,
+        barWidth: 7,
         barGap: '-100%',
-        itemStyle: { color: '#1B7A4E', borderRadius: 3 },
+        itemStyle: { color: '#111827', borderRadius: 2 },
         label: {
           show: true,
           position: 'right',
@@ -1215,6 +1284,7 @@ export function bulletOption(
           color: '#374151',
           formatter: () => fmt(actual),
         },
+        markLine: targetMarkLine,
         z: 2,
       },
     ],

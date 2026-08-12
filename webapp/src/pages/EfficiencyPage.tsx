@@ -10,7 +10,8 @@ import {
   tooltipUnits,
   valueAxis,
 } from '../components/Chart'
-import { BreakdownDrawer, BreakdownTable, Card, EmptyState, StatCard } from '../components/ui'
+import { BreakdownDrawer, Card, DataTable, EmptyState, StatCard } from '../components/ui'
+import type { ThresholdTone } from '../components/ui'
 import { aggregateRoutes, periodTotals } from '../lib/aggregate'
 import type { RouteAgg } from '../lib/aggregate'
 import { applyFilters, splitByComparison } from '../lib/filters'
@@ -27,6 +28,24 @@ function meanKpi(rows: KpiDailyRow[], key: keyof KpiDailyRow): number | null {
 }
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+// Source: docs/phase0/05-etm-od-gis-kpi-catalogue.md §10 "Benchmarks (sourced)".
+// CRDF/CEPT's own published MoHUA ESCBS reports (Mira Bhayandar, Chandigarh):
+// LF <0.30 described as "low bus patronage", 0.3-0.4 described as "lower
+// compared to standard of 0.7". General Indian mid-size-city planning
+// reference, not independently validated against Bhavnagar specifically.
+const LF_TARGET_PCT = 70
+const LF_BANDS_PCT: { to: number; color: string }[] = [
+  { to: 30, color: '#FEE2E2' }, // poor  (< 0.30)
+  { to: 70, color: '#FEF3C7' }, // fair  (0.30 - 0.70)
+  { to: 100, color: '#E8F7EF' }, // good (>= 0.70)
+]
+
+function lfTone(lf: number): ThresholdTone {
+  if (lf < 0.3) return 'bad'
+  if (lf < 0.7) return 'warn'
+  return 'good'
+}
 
 /** "2026-04-07" reads as "07 Apr" on a dense daily axis. */
 function shortDate(iso: string): string {
@@ -245,11 +264,12 @@ export function EfficiencyPage({ data, filters }: { data: DashboardData; filters
   }, [allRoutes])
 
   const bullets = useMemo(() => {
-    const ceil = Math.max(...routeRows.map((r) => r.lf * 100), 1)
     return routeRows.slice(0, 6).map((r) => ({
       code: r.route_code,
-      option: bulletOption(Number((r.lf * 100).toFixed(1)), ceil, {
+      option: bulletOption(Number((r.lf * 100).toFixed(1)), LF_TARGET_PCT, {
         format: (v) => `${v.toFixed(1)}%`,
+        target: LF_TARGET_PCT,
+        bands: LF_BANDS_PCT,
       }) as EChartsOption,
     }))
   }, [routeRows])
@@ -480,7 +500,7 @@ export function EfficiencyPage({ data, filters }: { data: DashboardData; filters
       {bullets.length > 0 && (
         <Card
           title="Load factor by route"
-          subtitle="Route averages for the top routes by fare yield"
+          subtitle={`Marker at 70% \u2014 CRDF/CEPT benchmark, not this route set's own max`}
         >
           <div className="efficiency-bullets">
             {bullets.map((b) => (
@@ -524,24 +544,28 @@ export function EfficiencyPage({ data, filters }: { data: DashboardData; filters
         ]}
         note="Routes weak on load factor but strong on earnings per km are carrying short, high-turnover trips: they do not need more capacity, they need tighter headways."
       >
-        <BreakdownTable
+        <DataTable
+          rows={matrix.rows}
+          rowKey={(r) => r.route_code}
+          searchable
+          exportName="route_efficiency"
+          initialSort={{ key: 'lf', dir: 'desc' }}
           columns={[
-            { key: 'route', label: 'Route' },
-            { key: 'lf', label: 'Load factor', align: 'right' },
-            { key: 'epkm', label: 'Earnings/km', align: 'right' },
-            { key: 'yield', label: 'Fare yield', align: 'right' },
-            { key: 'tpb', label: 'Trips/bus', align: 'right' },
-            { key: 'ridership', label: 'Passengers', align: 'right' },
+            { key: 'route_code', header: 'Route', sortable: true },
+            {
+              key: 'lf',
+              header: 'Load factor',
+              align: 'right',
+              sortable: true,
+              bar: true,
+              threshold: lfTone,
+              format: (v) => fmtPct(v as number),
+            },
+            { key: 'epkm', header: 'Earnings/km', align: 'right', sortable: true, format: (v) => fmtMoney(v as number, { dp: 1 }) },
+            { key: 'fareYield', header: 'Fare yield', align: 'right', sortable: true, format: (v) => fmtMoney(v as number, { dp: 1 }) },
+            { key: 'tripsPerBus', header: 'Trips/bus', align: 'right', sortable: true, format: (v) => (v as number).toFixed(1) },
+            { key: 'ridership', header: 'Passengers', align: 'right', sortable: true, format: (v) => fmtInt(v as number) },
           ]}
-          rows={matrix.rows.map((r) => ({
-            __key: r.route_code,
-            route: r.route_code,
-            lf: fmtPct(r.lf),
-            epkm: fmtMoney(r.epkm, { dp: 1 }),
-            yield: fmtMoney(r.fareYield, { dp: 1 }),
-            tpb: r.tripsPerBus.toFixed(1),
-            ridership: fmtInt(r.ridership),
-          }))}
         />
       </BreakdownDrawer>
     </div>
