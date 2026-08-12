@@ -1,5 +1,6 @@
-import { useEffect, useId, useRef, type ReactNode } from 'react'
+import { useEffect, useId, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
+import { useFocusTrap } from './useFocusTrap'
 
 export interface DrawerProps {
   open: boolean
@@ -12,25 +13,15 @@ export interface DrawerProps {
 
 export function Drawer({ open, onClose, title, subtitle, children, width = 420 }: DrawerProps) {
   const titleId = useId()
-  const panelRef = useRef<HTMLDivElement | null>(null)
+  const panelRef = useFocusTrap<HTMLElement>(open, onClose)
 
   useEffect(() => {
     if (!open) return
-    const prev = document.activeElement as HTMLElement | null
-    panelRef.current?.focus()
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-    }
-    document.addEventListener('keydown', onKey)
     // The page scrolls in its own container, so the panel would drift away from
     // the card that opened it unless that container is pinned while it is open.
     document.documentElement.classList.add('has-drawer')
-    return () => {
-      document.removeEventListener('keydown', onKey)
-      document.documentElement.classList.remove('has-drawer')
-      prev?.focus()
-    }
-  }, [open, onClose])
+    return () => document.documentElement.classList.remove('has-drawer')
+  }, [open])
 
   if (!open) return null
 

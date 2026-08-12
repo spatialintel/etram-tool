@@ -60,6 +60,7 @@ export { DateRangePicker } from './DateRangePicker'
 export type { DateRangePickerProps } from './DateRangePicker'
 
 export { usePopover } from './usePopover'
+export { useFocusTrap } from './useFocusTrap'
 
 export { DataTable } from './DataTable'
 export type { DataTableProps, Column, ThresholdTone } from './DataTable'

@@ -1,4 +1,5 @@
-import { useEffect, useId, useRef, type ReactNode } from 'react'
+import { useId, type ReactNode } from 'react'
+import { useFocusTrap } from './useFocusTrap'
 
 export interface ModalProps {
   open: boolean
@@ -11,21 +12,7 @@ export interface ModalProps {
 
 export function Modal({ open, onClose, title, children, footer, size = 'md' }: ModalProps) {
   const titleId = useId()
-  const panelRef = useRef<HTMLDivElement | null>(null)
-
-  useEffect(() => {
-    if (!open) return
-    const prev = document.activeElement as HTMLElement | null
-    panelRef.current?.focus()
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-    }
-    document.addEventListener('keydown', onKey)
-    return () => {
-      document.removeEventListener('keydown', onKey)
-      prev?.focus()
-    }
-  }, [open, onClose])
+  const panelRef = useFocusTrap<HTMLDivElement>(open, onClose)
 
   if (!open) return null
 
