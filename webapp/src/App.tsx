@@ -2,7 +2,7 @@ import { Suspense, lazy, useEffect, useMemo } from 'react'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import {
   AppShell, Button, DateRangePicker, FilterBar, FilterChips, MultiSelect,
-  PageHeader, PrefsBar, SegmentedControl, Sidebar, SkeletonPage, Switch,
+  PageHeader, PrefsBar, SegmentedControl, Sidebar, SkeletonPage, Switch, useToast,
 } from './components/ui'
 import { DEFAULT_FILTERS, activeChips, clearChip, getComparisonRange, useUrlFilters } from './lib/filters'
 import type { DateRange, Granularity, FilterState } from './lib/filters'
@@ -61,6 +61,7 @@ const GRANULARITY_OPTIONS: { value: Granularity; label: string }[] = [
 
 function App() {
   const { data, error, replace, clear } = useDashboardData()
+  const toast = useToast()
   const { page: rawPage, filters, setPage, setFilters, reset } = useUrlFilters(
     DEFAULT_FILTERS,
     data ? 'overview' : 'upload',
@@ -137,7 +138,13 @@ function App() {
   const liveMessage = `${pageTitles[page].title}. ${chips.length} active filter${chips.length === 1 ? '' : 's'}.`
 
   function handleDataUpdate(d: DashboardData) {
-    replace(d)
+    if (!replace(d)) {
+      toast.push(
+        "Loaded, but this load is too large to keep across a page refresh in this browser tab (storage limit). It's fully usable now — re-upload if you reload the page.",
+        'warn',
+        { sticky: true },
+      )
+    }
     reset({ start: d.agency.date_min, end: d.agency.date_max })
     setPage('overview')
   }

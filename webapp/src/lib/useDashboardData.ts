@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from 'react'
-import { useToast } from '../components/ui'
 import type { DashboardData, DashboardMeta } from '../types'
 
 const SESSION_KEY = 'etram.dashboard.session'
@@ -13,8 +12,8 @@ export type UseDashboardData = {
   loading: boolean
   error: string | null
   reload: () => void
-  /** Swap in a payload produced by an upload job. */
-  replace: (d: DashboardData) => void
+  /** Swap in a payload produced by an upload job. Returns false if the session could not persist it (UI tier decides how to warn). */
+  replace: (d: DashboardData) => boolean
   clear: () => void
 }
 
@@ -47,7 +46,6 @@ export function useDashboardData(): UseDashboardData {
   const [data, setData] = useState<DashboardData | null>(() => readSession())
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-  const toast = useToast()
 
   useEffect(() => {
     // Intentionally do not fetch /data/* — portal stays empty until upload.
@@ -58,21 +56,13 @@ export function useDashboardData(): UseDashboardData {
     setError(null)
   }, [])
 
-  const replace = useCallback(
-    (d: DashboardData) => {
-      const persisted = writeSession(d)
-      if (!persisted) {
-        toast.push(
-          "Loaded, but this load is too large to keep across a page refresh in this browser tab (storage limit). It's fully usable now — re-upload if you reload the page.",
-          'warn',
-        )
-      }
-      setData(d)
-      setError(null)
-      setLoading(false)
-    },
-    [toast],
-  )
+  const replace = useCallback((d: DashboardData): boolean => {
+    const persisted = writeSession(d)
+    setData(d)
+    setError(null)
+    setLoading(false)
+    return persisted
+  }, [])
 
   const clear = useCallback(() => {
     writeSession(null)

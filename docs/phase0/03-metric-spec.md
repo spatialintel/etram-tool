@@ -124,8 +124,18 @@ Alighting =
 | EPKM_route | SUM(route_day.revenue) / (AVERAGE(route_length_route) × SUM(n_trips)) |
 | EPB | SUM(revenue) / SUM(n_buses) |
 | No. of trip/bus | SUM(n_trips) / SUM(n_buses) |
-| Vehicle KM | SUM(route_length_route) × SUM(n_trips) |
+| Vehicle KM | SUMX(route_day, route_length_route × n_trips) |
 | Vehicle KM/Bus | Vehicle KM / SUM(n_buses) |
+
+**Vehicle KM note.** The PBIX measure reads `SUM(route_length_route) × SUM(n_trips)`, but that
+form is only correct when `route_length_route` sits on a routes *dimension* table (one row per
+route). In our canonical model `route_length_route` is denormalized onto the `route_day_summary`
+*fact* table, so the length repeats on every day-row for a route; taking `SUM(length) × SUM(trips)`
+literally over a multi-day window inflates the result by a spurious factor of "number of days".
+Python therefore implements the row-wise `SUMX` form — Σ per route-day of `length × trips` —
+which equals the PBIX formula in the single-route/single-day case and is the metrically correct
+aggregation otherwise. Do not "correct" `kpi_vehicle_km` back to the literal `SUM(a) × SUM(b)`
+form; `etram/metrics/kpis.py` carries the same warning comment.
 
 ---
 

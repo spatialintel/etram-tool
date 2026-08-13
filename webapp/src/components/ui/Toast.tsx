@@ -9,7 +9,8 @@ export type ToastItem = {
 }
 
 type ToastApi = {
-  push: (message: string, tone?: ToastTone) => void
+  /** Push a toast. Pass `{ sticky: true }` to keep it until manually dismissed. */
+  push: (message: string, tone?: ToastTone, opts?: { sticky?: boolean }) => void
   dismiss: (id: string) => void
 }
 
@@ -24,10 +25,12 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     setItems((prev) => prev.filter((t) => t.id !== id))
   }, [])
 
-  const push = useCallback((message: string, tone: ToastTone = 'info') => {
+  const push = useCallback((message: string, tone: ToastTone = 'info', opts?: { sticky?: boolean }) => {
     const id = `toast-${++toastSeq}`
     setItems((prev) => [...prev, { id, message, tone }])
-    window.setTimeout(() => dismiss(id), 4000)
+    if (!opts?.sticky) {
+      window.setTimeout(() => dismiss(id), 4000)
+    }
   }, [dismiss])
 
   const api = useMemo(() => ({ push, dismiss }), [push, dismiss])
@@ -53,7 +56,7 @@ export function useToast(): ToastApi {
   const ctx = useContext(ToastContext)
   if (!ctx) {
     return {
-      push: (message) => { console.info('[toast]', message) },
+      push: (message, _tone, _opts) => { console.info('[toast]', message) },
       dismiss: () => {},
     }
   }
