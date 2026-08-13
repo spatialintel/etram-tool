@@ -492,7 +492,7 @@ export function StopsPage({ data, filters }: { data: DashboardData; filters: Fil
           <EmptyState>No stop data for this filter selection.</EmptyState>
         )}
         {!isV2 && (
-          <p className="ops-footnote">Re-export for route polylines (stop_sequence_geo).</p>
+          <p className="ops-footnote">Route lines on the map need a complete data upload.</p>
         )}
       </Card>
 

@@ -1,6 +1,6 @@
 import { addDays, weekdayOf } from './filters'
 import type { Granularity } from './filters'
-import type { DailyRow, RouteTrendRow, StopMapRow, TemporalRow } from '../types'
+import type { DailyRow, KpiDailyRow, RouteTrendRow, StopMapRow, TemporalRow } from '../types'
 
 /* Time bucketing */
 
@@ -115,6 +115,46 @@ export function periodTotals(rows: DailyRow[]): PeriodTotals {
   }
 }
 
+/** Period ratios from daily KPI rows: sums in the numerator and denominator, not a mean of daily ratios. */
+export type PeriodKpis = {
+  lf: number | null
+  epkm: number | null
+  epb: number | null
+  vehicle_km: number | null
+  vehicle_km_per_bus: number | null
+  headway_mins: number | null
+}
+
+export function periodKpisFromDaily(rows: KpiDailyRow[]): PeriodKpis {
+  let pax_km = 0
+  let capacity_km = 0
+  let revenue = 0
+  let vehicle_km = 0
+  let bus_days = 0
+  let trips = 0
+  let headway_span = 0
+  for (const r of rows) {
+    pax_km += r.pax_km || 0
+    capacity_km += r.capacity_km || 0
+    revenue += r.revenue || 0
+    vehicle_km += r.vehicle_km || 0
+    bus_days += r.n_buses || 0
+    const n = r.n_trips || 0
+    trips += n
+    if (typeof r.headway_mins === 'number' && Number.isFinite(r.headway_mins) && n > 0) {
+      headway_span += r.headway_mins * n
+    }
+  }
+  return {
+    lf: capacity_km > 0 ? pax_km / capacity_km : null,
+    epkm: vehicle_km > 0 ? revenue / vehicle_km : null,
+    epb: bus_days > 0 ? revenue / bus_days : null,
+    vehicle_km: vehicle_km > 0 ? vehicle_km : null,
+    vehicle_km_per_bus: bus_days > 0 && vehicle_km > 0 ? vehicle_km / bus_days : null,
+    headway_mins: trips > 0 && headway_span > 0 ? headway_span / trips : null,
+  }
+}
+
 /* Routes */
 
 export type RouteAgg = {
@@ -132,15 +172,10 @@ export type RouteAgg = {
   vehicleKm: number
 }
 
-/**
- * Route load factor arrives as a daily ratio with no exposure denominator, so
- * it is weighted by trips - the closest proxy for how much service each day
- * contributed.
- */
 export function aggregateRoutes(rows: RouteTrendRow[]): RouteAgg[] {
   const map = new Map<
     string,
-    RouteAgg & { lfWeight: number; lfSum: number; busDays: number; vehicleKm: number }
+    RouteAgg & { paxKm: number; capKm: number; lfWeight: number; lfSum: number; busDays: number }
   >()
   for (const r of rows) {
     let e = map.get(r.route_code)
@@ -157,6 +192,8 @@ export function aggregateRoutes(rows: RouteTrendRow[]): RouteAgg[] {
         days: 0,
         epkm: 0,
         vehicleKm: 0,
+        paxKm: 0,
+        capKm: 0,
         lfWeight: 0,
         lfSum: 0,
         busDays: 0,
@@ -168,14 +205,17 @@ export function aggregateRoutes(rows: RouteTrendRow[]): RouteAgg[] {
     e.revenue += r.revenue || 0
     e.trips += w
     e.busDays += r.n_buses || 0
+    e.vehicleKm += (r.route_length_route || 0) * w
+    e.paxKm += r.pax_km || 0
+    e.capKm += r.capacity_km || 0
     e.lfSum += (r.load_factor_route || 0) * w
     e.lfWeight += w
-    e.vehicleKm += (r.route_length_route || 0) * w
     e.days += 1
   }
   return [...map.values()]
     .map((e) => {
       const busesPerDay = e.days > 0 ? e.busDays / e.days : 0
+      const lf = e.capKm > 0 ? e.paxKm / e.capKm : e.lfWeight > 0 ? e.lfSum / e.lfWeight : 0
       return {
         route_code: e.route_code,
         ridership: e.ridership,
@@ -183,7 +223,7 @@ export function aggregateRoutes(rows: RouteTrendRow[]): RouteAgg[] {
         trips: e.trips,
         busesPerDay,
         days: e.days,
-        lf: e.lfWeight > 0 ? e.lfSum / e.lfWeight : 0,
+        lf,
         fareYield: e.ridership > 0 ? e.revenue / e.ridership : 0,
         tripsPerBus: e.busDays > 0 ? e.trips / e.busDays : 0,
         vehicleKm: e.vehicleKm,

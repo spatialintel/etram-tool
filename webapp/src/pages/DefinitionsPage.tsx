@@ -42,8 +42,9 @@ export function DefinitionsPage() {
         subtitle="Every KPI on the dashboard — formula, calculation steps, and data source. The same text appears on ⓘ tips next to each metric."
       >
         <p className="definitions-lead">
-          Formulas follow the Power BI (PBIX) / Phase 0 metric specification. There are no unverified
-          targets or benchmarks. Click ⓘ on any KPI card for the same explanation without leaving the page.
+          Where a national standard applies, MoHUA is used — the Efficiency load-factor marker is the
+          MoHUA ESCBS city-bus planning standard of 70%. Click ⓘ on any KPI card for the same
+          explanation without leaving the page.
         </p>
         <DataTable
           rows={rows}

@@ -47,11 +47,13 @@ def kpi_lf(trip_summary: pd.DataFrame) -> float | None:
 
 
 def kpi_epkm(trip_summary: pd.DataFrame) -> float | None:
-    n = trip_summary["trip_id"].nunique()
-    avg_len = trip_summary["route_length_km"].mean()
-    if n == 0 or pd.isna(avg_len) or avg_len == 0:
+    # Spec text uses AVERAGE(length) × trip count. That matches SUM(length)
+    # only when every trip has the same length. Mixed lengths must use
+    # Σ revenue ÷ Σ route_length (one row per trip = vehicle-km).
+    vkm = trip_summary["route_length_km"].astype(float).sum()
+    if vkm == 0 or pd.isna(vkm):
         return None
-    return float(trip_summary["revenue_trip"].sum() / (avg_len * n))
+    return float(trip_summary["revenue_trip"].sum() / vkm)
 
 
 def kpi_atl(route_day: pd.DataFrame) -> float | None:
@@ -62,11 +64,10 @@ def kpi_atl(route_day: pd.DataFrame) -> float | None:
 
 
 def kpi_epkm_route(route_day: pd.DataFrame) -> float | None:
-    avg_len = route_day["route_length_route"].mean()
-    n_trips = route_day["n_trips"].sum()
-    if pd.isna(avg_len) or avg_len == 0 or n_trips == 0:
+    vkm = kpi_vehicle_km(route_day)
+    if vkm is None or vkm == 0:
         return None
-    return float(route_day["revenue"].sum() / (avg_len * n_trips))
+    return float(route_day["revenue"].sum() / vkm)
 
 
 def kpi_epb(route_day: pd.DataFrame) -> float | None:

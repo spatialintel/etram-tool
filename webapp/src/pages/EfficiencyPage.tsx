@@ -12,28 +12,18 @@ import {
 } from '../components/Chart'
 import { BreakdownDrawer, Card, DataTable, EmptyState, StatCard } from '../components/ui'
 import type { ThresholdTone } from '../components/ui'
-import { aggregateRoutes, periodTotals } from '../lib/aggregate'
+import { aggregateRoutes, periodKpisFromDaily, periodTotals } from '../lib/aggregate'
 import type { RouteAgg } from '../lib/aggregate'
 import { applyFilters, splitByComparison } from '../lib/filters'
 import type { FilterState } from '../lib/filters'
 import { fmtDateWithWeekday, fmtDelta, fmtInt, fmtKm, fmtMoney, fmtPct } from '../lib/format'
 import type { DashboardData, KpiDailyRow, TripDistributionBin } from '../types'
 
-function meanKpi(rows: KpiDailyRow[], key: keyof KpiDailyRow): number | null {
-  const vals = rows
-    .map((r) => r[key])
-    .filter((v): v is number => typeof v === 'number' && Number.isFinite(v))
-  if (!vals.length) return null
-  return vals.reduce((a, b) => a + b, 0) / vals.length
-}
-
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
-// Source: docs/phase0/05-etm-od-gis-kpi-catalogue.md §10 "Benchmarks (sourced)".
-// CRDF/CEPT's own published MoHUA ESCBS reports (Mira Bhayandar, Chandigarh):
-// LF <0.30 described as "low bus patronage", 0.3-0.4 described as "lower
-// compared to standard of 0.7". General Indian mid-size-city planning
-// reference, not independently validated against Bhavnagar specifically.
+// MoHUA ESCBS city-bus planning (CEPT): 0.7 cited as the utilisation standard
+// for urban services. MoHUA SLB 2012 comfort is passengers/seat, a different
+// measure, so those LoS bands are not applied to this LF.
 const LF_TARGET_PCT = 70
 const LF_BANDS_PCT: { to: number; color: string }[] = [
   { to: 30, color: '#FEE2E2' }, // poor  (< 0.30)
@@ -183,17 +173,7 @@ export function EfficiencyPage({ data, filters }: { data: DashboardData; filters
     })
   }, [data.kpi_daily, filters.range])
 
-  const kpiAvg = useMemo(
-    () => ({
-      EPKM: meanKpi(kpiRows, 'EPKM'),
-      EPB: meanKpi(kpiRows, 'EPB'),
-      vehicle_km: meanKpi(kpiRows, 'vehicle_km'),
-      vehicle_km_per_bus: meanKpi(kpiRows, 'vehicle_km_per_bus'),
-      headway_mins: meanKpi(kpiRows, 'headway_mins'),
-      LF: meanKpi(kpiRows, 'LF'),
-    }),
-    [kpiRows],
-  )
+  const kpiPeriod = useMemo(() => periodKpisFromDaily(kpiRows), [kpiRows])
 
   const kpiSeries = useMemo(() => {
     const dates = kpiRows.map((r) => r.service_date!).filter(Boolean)
@@ -290,7 +270,7 @@ export function EfficiencyPage({ data, filters }: { data: DashboardData; filters
       {
         key: 'headway',
         title: 'Average headway',
-        subtitle: 'Minutes between consecutive trips, by day',
+        subtitle: 'Average interval between trips, by day',
         values: kpiSeries.headway_mins,
         name: 'Headway',
         color: '#374151',
@@ -381,7 +361,7 @@ export function EfficiencyPage({ data, filters }: { data: DashboardData; filters
         />
         <StatCard
           label="Earnings per km (EPKM)"
-          value={dash(kpiAvg.EPKM, (v) => fmtMoney(v, { dp: 2 }))}
+          value={dash(kpiPeriod.epkm, (v) => fmtMoney(v, { dp: 2 }))}
           sub="Revenue per vehicle-km operated"
           definitionKey="epkm"
           spark={kpiSeries.EPKM.filter((v): v is number => v != null)}
@@ -390,32 +370,32 @@ export function EfficiencyPage({ data, filters }: { data: DashboardData; filters
         />
         <StatCard
           label="Earnings per bus (EPB)"
-          value={dash(kpiAvg.EPB, (v) => fmtMoney(v, { compact: v >= 1e5 }))}
+          value={dash(kpiPeriod.epb, (v) => fmtMoney(v, { compact: v >= 1e5 }))}
           sub="Revenue produced by one bus per day"
           definitionKey="epb"
           spark={kpiSeries.EPB.filter((v): v is number => v != null)}
         />
         <StatCard
           label="Vehicle km"
-          value={dash(kpiAvg.vehicle_km, (v) => fmtInt(Math.round(v)))}
+          value={dash(kpiPeriod.vehicle_km, (v) => fmtInt(Math.round(v)))}
           definitionKey="vehicle_km"
           sub={
-            kpiAvg.vehicle_km_per_bus != null
-              ? `${fmtInt(Math.round(kpiAvg.vehicle_km_per_bus))} km/bus`
-              : 'Daily average — re-export for per-bus value'
+            kpiPeriod.vehicle_km_per_bus != null
+              ? `${fmtInt(Math.round(kpiPeriod.vehicle_km_per_bus))} km/bus`
+              : 'Vehicle-km in the selected period'
           }
           spark={kpiSeries.vehicle_km.filter((v): v is number => v != null)}
         />
         <StatCard
           label="Average headway"
-          value={dash(kpiAvg.headway_mins, (v) => `${v.toFixed(1)} min`)}
-          sub="Gap between consecutive trips"
+          value={dash(kpiPeriod.headway_mins, (v) => `${v.toFixed(1)} min`)}
+          sub="Average interval between trips"
           definitionKey="headway"
           spark={kpiSeries.headway_mins.filter((v): v is number => v != null)}
         />
         <StatCard
           label="Load factor (LF)"
-          value={fmtPct(isV2 && kpiAvg.LF != null ? kpiAvg.LF : totals.lf)}
+          value={fmtPct(isV2 && kpiPeriod.lf != null ? kpiPeriod.lf : totals.lf)}
           sub="Passenger-km as a share of capacity-km"
           definitionKey="lf"
           onClick={() => setDrill('lf')}
@@ -433,8 +413,8 @@ export function EfficiencyPage({ data, filters }: { data: DashboardData; filters
       </div>
 
       {!isV2 && (
-        <EmptyState title="Python KPIs need schema v2">
-          Re-run the export for EPKM, EPB, vehicle-km, headway, and trip distribution.
+        <EmptyState title="Some efficiency measures are unavailable">
+          Upload the full file set again to compute earnings, vehicle-km, headway, and trip distribution.
         </EmptyState>
       )}
 
@@ -500,7 +480,7 @@ export function EfficiencyPage({ data, filters }: { data: DashboardData; filters
       {bullets.length > 0 && (
         <Card
           title="Load factor by route"
-          subtitle={`Marker at 70% \u2014 CRDF/CEPT benchmark, not this route set's own max`}
+          subtitle="Marker at 70% — service planning benchmark"
         >
           <div className="efficiency-bullets">
             {bullets.map((b) => (
@@ -536,7 +516,7 @@ export function EfficiencyPage({ data, filters }: { data: DashboardData; filters
           { label: 'Network load factor', value: fmtPct(totals.lf) },
           {
             label: 'Earnings per km',
-            value: dash(kpiAvg.EPKM, (v) => fmtMoney(v, { dp: 2 })),
+            value: dash(kpiPeriod.epkm, (v) => fmtMoney(v, { dp: 2 })),
             hint: 'Network average',
           },
           { label: 'Fare yield', value: fmtMoney(totals.fareYield, { dp: 2 }), hint: 'Per passenger' },

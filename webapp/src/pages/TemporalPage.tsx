@@ -375,7 +375,7 @@ export function TemporalPage({
         </section>
 
         <section aria-labelledby="temporal-supply-kpis">
-          <h2 id="temporal-supply-kpis" className="section-label">Service reliability summary</h2>
+          <h2 id="temporal-supply-kpis" className="section-label">Service frequency</h2>
           <div className="kpi-grid kpi-grid--3">
             <StatCard
               label="Peak headway"
@@ -383,15 +383,15 @@ export function TemporalPage({
               sub={peakHeadway.off != null ? `Off-peak ${peakHeadway.off} min` : undefined}
               definitionKey="headway"
               onClick={() => setDrill('headway')}
-              drillLabel="Reliability detail"
+              drillLabel="Frequency detail"
             />
             <StatCard
-              label="Bunching proxy"
+              label="Peak-hour trip variation"
               value={peakBunchingCv != null ? peakBunchingCv.toFixed(2) : '\u2014'}
-              sub="Coefficient of variation of peak-hour trip counts across days"
+              sub="How evenly trips are spread across busy hours"
               definitionKey="bunching"
               onClick={() => setDrill('headway')}
-              drillLabel="Reliability detail"
+              drillLabel="Frequency detail"
             />
             <StatCard
               label="Trips operated"
@@ -405,8 +405,8 @@ export function TemporalPage({
       </div>
 
       {gran === 'slot' && !isV2 && (
-        <EmptyState title="30-min slots need schema v2">
-          Re-run the data export to enable slot_summary.
+        <EmptyState title="Half-hour slots are unavailable">
+          Upload the full file set again to show 30-minute trip slots.
         </EmptyState>
       )}
 
@@ -499,19 +499,19 @@ export function TemporalPage({
       <BreakdownDrawer
         open={drill === 'headway'}
         onClose={() => setDrill(null)}
-        title="Headway reliability"
-        subtitle="Median gap between trips, and how much it varies day to day"
+        title="Service frequency"
+        subtitle="Typical gap between trips, and how much it varies day to day"
         width={560}
         stats={[
           { label: 'Peak headway', value: peakHeadway.peak != null ? `${peakHeadway.peak} min` : '\u2014' },
           { label: 'Off-peak headway', value: peakHeadway.off != null ? `${peakHeadway.off} min` : '\u2014' },
           {
-            label: 'Bunching proxy',
+            label: 'Peak-hour trip variation',
             value: peakBunchingCv != null ? peakBunchingCv.toFixed(2) : '\u2014',
-            hint: 'Variation in trips across peak hours',
+            hint: 'How evenly trips are spread across busy hours',
           },
         ]}
-        note="A wide band means the same hour is served unevenly on different days. That is a rostering and dispatch problem, not a timetable problem."
+        note="A wide band means the same hour is served unevenly on different days."
       />
     </div>
   )

@@ -265,7 +265,7 @@ export function EntitiesPage({
     return (
       <div className="page">
         <EmptyState title="No entity summaries">
-          Re-export Phase 3 data (schema v2) to populate vehicle_summary and crew_summary.
+          Vehicle and crew tables are unavailable for this upload. Upload the full file set again.
         </EmptyState>
       </div>
     )

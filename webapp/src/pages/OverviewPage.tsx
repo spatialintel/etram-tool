@@ -24,7 +24,7 @@ import {
   StatusBadge,
 } from '../components/ui'
 import type { StatusBadgeTone } from '../components/ui'
-import { aggregateDaily, aggregateRoutes, periodTotals } from '../lib/aggregate'
+import { aggregateDaily, aggregateRoutes, periodKpisFromDaily, periodTotals } from '../lib/aggregate'
 import { applyFilters, splitByComparison } from '../lib/filters'
 import type { FilterState } from '../lib/filters'
 import { fmtDateShort, fmtDateWithWeekday, fmtDelta, fmtInt, fmtMoney, fmtPct, fmtWeekday } from '../lib/format'
@@ -47,14 +47,6 @@ type DrillKey =
   | 'ops'
   | 'health'
   | null
-
-function meanKpi(rows: KpiDailyRow[], key: keyof KpiDailyRow): number | null {
-  const vals = rows
-    .map((r) => r[key])
-    .filter((v): v is number => typeof v === 'number' && Number.isFinite(v))
-  if (vals.length === 0) return null
-  return vals.reduce((a, b) => a + b, 0) / vals.length
-}
 
 function fmtOrDash(n: number | null, fmt: (v: number) => string): string {
   return n == null ? '\u2014' : fmt(n)
@@ -160,10 +152,11 @@ export function OverviewPage({
   }, [data.kpi_daily, filters.range])
 
   const ops: OpsItem[] = useMemo(() => {
-    const epkm = isV2 ? meanKpi(kpiInRange, 'EPKM') : null
-    const epb = isV2 ? meanKpi(kpiInRange, 'EPB') : null
-    const headway = isV2 ? meanKpi(kpiInRange, 'headway_mins') : null
-    const vehicleUtil = isV2 ? meanKpi(kpiInRange, 'vehicle_km_per_bus') : null
+    const period = isV2 ? periodKpisFromDaily(kpiInRange) : null
+    const epkm = period?.epkm ?? null
+    const epb = period?.epb ?? null
+    const headway = period?.headway_mins ?? null
+    const vehicleUtil = period?.vehicle_km_per_bus ?? null
     const busDays = totals.tripsPerBus > 0 ? totals.trips / totals.tripsPerBus : 0
     return [
       {
@@ -641,7 +634,7 @@ export function OverviewPage({
           </dl>
           {!isV2 && (
             <p className="ops-footnote">
-              Re-run the data export for earnings per km, earnings per bus, and headway.
+              Earnings per km, earnings per bus, and headway need a complete data upload.
             </p>
           )}
         </Card>
@@ -868,7 +861,7 @@ export function OverviewPage({
           { label: 'Trips per bus', value: totals.tripsPerBus.toFixed(1) },
           { label: 'Trips per day', value: fmtInt(Math.round(totals.trips / Math.max(totals.days, 1))) },
         ]}
-        note="Trips per bus is n_trips / n_buses from the route-day summary (PBIX). Low values usually indicate lost running time (breakdowns, crew changeovers, terminal layover) rather than a shortage of vehicles."
+        note="Trips per bus is trips operated divided by bus-days. Low values usually mean lost running time (breakdowns, crew changeovers, terminal layover) rather than a shortage of vehicles."
       >
         <BreakdownTable
           caption="Trips by route"

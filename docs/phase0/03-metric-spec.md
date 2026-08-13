@@ -119,13 +119,21 @@ Alighting =
 | timeslot_1 / Time Slot / Start / End | 30-min floor of Trip Starting Time |
 | Stop No.-Abbre. | `{stop_no}-{stop_abbr}` |
 | LF | SUM(trip_summary.pax_km) / SUM(trip_summary.capacity_km) |
-| EPKM | SUM(revenue_trip) / (AVERAGE(route_length_km) × DISTINCTCOUNT(trip_id)) |
+| EPKM | SUM(revenue_trip) / SUM(route_length_km) |
 | ATL | SUM(route_day.pax_km) / SUM(route_day.ridership) |
-| EPKM_route | SUM(route_day.revenue) / (AVERAGE(route_length_route) × SUM(n_trips)) |
+| EPKM_route | SUM(route_day.revenue) / Vehicle KM |
 | EPB | SUM(revenue) / SUM(n_buses) |
 | No. of trip/bus | SUM(n_trips) / SUM(n_buses) |
 | Vehicle KM | SUMX(route_day, route_length_route × n_trips) |
 | Vehicle KM/Bus | Vehicle KM / SUM(n_buses) |
+
+**EPKM note.** The PBIX text is `SUM(revenue_trip) / (AVERAGE(route_length_km) × DISTINCTCOUNT(trip_id))`
+(and the route-day analogue with `AVERAGE(route_length_route) × SUM(n_trips)`). That equals
+`Σ revenue ÷ Σ vehicle-km` only when every trip has the same length. Mixed lengths, or a
+multi-day window with the length repeated on each `route_day` row, inflate the denominator if
+the mean is multiplied by trip count. Python therefore uses `Σ revenue_trip ÷ Σ route_length_km`
+on trip_summary (`kpi_epkm`) and `Σ revenue ÷ kpi_vehicle_km` on route_day (`kpi_epkm_route`).
+Do not restore the AVERAGE×count form; `etram/metrics/kpis.py` carries the same comment.
 
 **Vehicle KM note.** The PBIX measure reads `SUM(route_length_route) × SUM(n_trips)`, but that
 form is only correct when `route_length_route` sits on a routes *dimension* table (one row per

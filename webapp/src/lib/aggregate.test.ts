@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { aggregateDaily, aggregateHours, aggregateRoutes, aggregateStops, bucketKey, periodTotals, weekStart } from './aggregate'
-import type { DailyRow, RouteTrendRow, StopMapRow, TemporalRow } from '../types'
+import { aggregateDaily, aggregateHours, aggregateRoutes, aggregateStops, bucketKey, periodKpisFromDaily, periodTotals, weekStart } from './aggregate'
+import type { DailyRow, KpiDailyRow, RouteTrendRow, StopMapRow, TemporalRow } from '../types'
 
 const daily = (service_date: string, patch: Partial<DailyRow> = {}): DailyRow => ({
   service_date,
@@ -83,6 +83,47 @@ describe('periodTotals', () => {
   })
 })
 
+describe('periodKpisFromDaily', () => {
+  const kpi = (service_date: string, patch: Partial<KpiDailyRow> = {}): KpiDailyRow => ({
+    service_date,
+    ridership: 100,
+    revenue: 200,
+    n_trips: 10,
+    n_buses: 2,
+    pax_km: 50,
+    capacity_km: 100,
+    LF: 0.5,
+    EPKM: 1,
+    ATL: 0.5,
+    EPKM_route: 1,
+    EPB: 100,
+    trips_per_bus: 5,
+    vehicle_km: 40,
+    vehicle_km_per_bus: 20,
+    headway_mins: 12,
+    ...patch,
+  })
+
+  it('computes load factor, EPKM, and EPB from period sums', () => {
+    const out = periodKpisFromDaily([
+      kpi('2026-04-01', { pax_km: 10, capacity_km: 10, revenue: 100, vehicle_km: 10, n_buses: 1, LF: 1, EPKM: 10 }),
+      kpi('2026-04-02', { pax_km: 10, capacity_km: 90, revenue: 100, vehicle_km: 90, n_buses: 9, LF: 0.11, EPKM: 1.1 }),
+    ])
+    expect(out.lf).toBeCloseTo(0.2, 10)
+    expect(out.epkm).toBeCloseTo(2, 10)
+    expect(out.epb).toBeCloseTo(20, 10)
+    expect(out.vehicle_km).toBe(100)
+  })
+
+  it('trip-weights headway across days', () => {
+    const out = periodKpisFromDaily([
+      kpi('2026-04-01', { n_trips: 1, headway_mins: 30 }),
+      kpi('2026-04-02', { n_trips: 9, headway_mins: 10 }),
+    ])
+    expect(out.headway_mins).toBeCloseTo(12, 10)
+  })
+})
+
 describe('aggregateRoutes', () => {
   const rt = (service_date: string, route_code: string, patch: Partial<RouteTrendRow> = {}): RouteTrendRow => ({
     service_date,
@@ -102,12 +143,28 @@ describe('aggregateRoutes', () => {
     expect(out[0].days).toBe(2)
   })
 
-  it('weights load factor by trips', () => {
+  it('falls back to trip-weighted load factor when passenger-km is missing', () => {
     const out = aggregateRoutes([
       rt('2026-04-01', 'R1', { load_factor_route: 0.9, n_trips: 1 }),
       rt('2026-04-02', 'R1', { load_factor_route: 0.1, n_trips: 9 }),
     ])
     expect(out[0].lf).toBeCloseTo(0.18, 10)
+  })
+
+  it('computes load factor from passenger-km over capacity-km', () => {
+    const out = aggregateRoutes([
+      rt('2026-04-01', 'R1', { pax_km: 90, capacity_km: 100, load_factor_route: 0.9, n_trips: 1 }),
+      rt('2026-04-02', 'R1', { pax_km: 90, capacity_km: 900, load_factor_route: 0.1, n_trips: 9 }),
+    ])
+    expect(out[0].lf).toBeCloseTo(0.18, 10)
+  })
+
+  it('does not trip-weight load factor when capacity-km is present', () => {
+    const out = aggregateRoutes([
+      rt('2026-04-01', 'R1', { pax_km: 10, capacity_km: 100, load_factor_route: 0.9, n_trips: 1 }),
+      rt('2026-04-02', 'R1', { pax_km: 10, capacity_km: 900, load_factor_route: 0.1, n_trips: 9 }),
+    ])
+    expect(out[0].lf).toBeCloseTo(0.02, 10)
   })
 
   it('computes trips per bus over bus-days', () => {
