@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  python:
+    name: Python (pytest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: pip install -r requirements-lock.txt pytest
+      - name: Run tests
+        run: PYTHONPATH=. python -m pytest tests -v
+
+  webapp:
+    name: Webapp (encoding, tsc, vitest, build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: webapp
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: webapp/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Encoding check
+        # Fails the build if any file needed fixing, rather than silently
+        # committing a fix — a UTF-16 file should never reach main in the
+        # first place (see docs/phase0/05-etm-od-gis-kpi-catalogue.md history).
+        run: |
+          node scripts/fix-encoding.mjs | tee /tmp/enc.log
+          if ! grep -q "encoding ok" /tmp/enc.log; then
+            echo "::error::One or more files were UTF-16 encoded. Fixed locally by this step, but commit scripts/fix-encoding.mjs's output rather than letting CI paper over it."
+            exit 1
+          fi
+      - name: JSX escape check
+        run: node scripts/check-jsx-escapes.mjs
+      - name: Typecheck
+        run: npx tsc -b --pretty false
+      - name: Lint
+        run: npm run lint
+      - name: Unit tests
+        run: npm run test
+      - name: Build
+        run: npm run build

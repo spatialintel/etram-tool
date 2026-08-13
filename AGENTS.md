@@ -33,7 +33,7 @@ The FastAPI `_run_job` in `etram/__init__.py` runs all four with a single `PIPEL
 PowerShell, project root:
 
 ```powershell
-pip install -r requirements.txt
+pip install -r requirements.txt     # dev: loose ranges; CI/Docker use requirements-lock.txt (Python 3.12)
 $env:PYTHONPATH = (Get-Location).Path
 .\scripts\run_api.ps1                 # uvicorn etram:app --port 8000 --reload
 ```
@@ -100,7 +100,7 @@ If the agency has no KML, leave `kml_route_lengths.path` empty (`""`) and the lo
 ## Deploy (Railway)
 
 - `railway.json` pins builder to `Dockerfile` (root). Do not let Railway auto-detect Python/Railpack — the repo is mixed Python+Node.
-- Multi-stage build: `node:22-alpine` builds `webapp/dist`, then `python:3.11-slim` copies it in and runs `uvicorn etram:app --port ${PORT:-8080}`.
+- Multi-stage build: `node:22-alpine` builds `webapp/dist`, then `python:3.12-slim` copies it in and runs `uvicorn etram:app --port ${PORT:-8080}`. CI (`.github/workflows/ci.yml`) runs pytest + the webapp checks against `requirements-lock.txt` (Python 3.12) — keep the lock in sync with `requirements.txt` and re-verify tests before committing it.
 - Healthcheck: `/api/health` (180s timeout, ON_FAILURE restart, 3 retries).
 - Mount a volume at `/app/data` so `data/jobs/` and uploaded data survive restarts. Both cross-process lock files (`data/.pipeline.lock`, `data/jobs/.registry.lock`) live under the same mount — a shared volume is what lets multiple replicas serialize; without it the file locks only serialize processes on one host. ≥ 2 GB RAM for full-month May packs (smaller tiers OOM/restart).
 
