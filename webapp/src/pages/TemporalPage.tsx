@@ -21,7 +21,7 @@ import {
   SegmentedControl,
   StatCard,
 } from '../components/ui'
-import { aggregateHours } from '../lib/aggregate'
+import { aggregateHours, headwayMinsFromTemporal, hourlyRouteHeadways } from '../lib/aggregate'
 import { applyFilters, weekdayOf } from '../lib/filters'
 import type { FilterState } from '../lib/filters'
 import { fmtInt, fmtMoney, fmtPct } from '../lib/format'
@@ -49,18 +49,6 @@ function slotSortKey(label: string): number {
   const m = /^(\d{1,2}):(\d{2})/.exec(label)
   if (!m) return 0
   return Number(m[1]) * 60 + Number(m[2])
-}
-
-/**
- * PBIX Headway (mins): Selected time interval_min / COUNT(bus_trip_key).
- * Span is first→last hour window in minutes; divisor is trip count (not n−1).
- */
-function headwayFrom(hours: number[], trips: number, days: number): number | null {
-  if (hours.length < 1 || trips <= 0 || days <= 0) return null
-  const span = (Math.max(...hours) - Math.min(...hours)) * 60
-  const departuresPerDay = trips / days
-  if (departuresPerDay < 1) return null
-  return Math.round(span / departuresPerDay)
 }
 
 export function TemporalPage({
@@ -101,21 +89,17 @@ export function TemporalPage({
   }, [rows, peakHours, totR])
 
   const peakHeadway = useMemo(() => {
-    const peakRows = rows.filter((r) => peakHours.has(r.hour))
-    const offRows = rows.filter((r) => !peakHours.has(r.hour))
+    const round = (n: number | null) => (n == null ? null : Math.round(n))
     return {
-      peak: headwayFrom(
-        peakRows.map((r) => r.hour),
-        peakRows.reduce((s, r) => s + r.trips, 0),
-        daysInView,
-      ),
-      off: headwayFrom(
-        offRows.map((r) => r.hour),
-        offRows.reduce((s, r) => s + r.trips, 0),
-        daysInView,
+      peak: round(headwayMinsFromTemporal(temporalRows, peakHours)),
+      off: round(
+        headwayMinsFromTemporal(
+          temporalRows,
+          new Set(rows.filter((r) => !peakHours.has(r.hour)).map((r) => r.hour)),
+        ),
       ),
     }
-  }, [rows, peakHours, daysInView])
+  }, [temporalRows, rows, peakHours])
 
   /** CV of trips across peak hours — higher means more uneven frequency (bunching proxy). */
   const peakBunchingCv = useMemo(() => {
@@ -219,34 +203,25 @@ export function TemporalPage({
   })
 
   /**
-   * Headway per hour on each individual day, then the median and the spread.
-   * A single average hides the days when the gap doubles, which is exactly
-   * what passengers notice.
+   * Per route-hour implied interval (60 / trips), then median and spread across
+   * route-days. Pooling routes in the same hour understates the gap.
    */
   const headwayOpt = useMemo((): EChartsOption => {
-    const byHour = new Map<number, Map<string, number>>()
-    for (const r of temporalRows) {
-      const inner = byHour.get(r.start_hour) ?? new Map<string, number>()
-      inner.set(r.service_date, (inner.get(r.service_date) ?? 0) + (r.trips || 0))
-      byHour.set(r.start_hour, inner)
-    }
-
+    const byHour = hourlyRouteHeadways(temporalRows)
     const median: (number | null)[] = []
     const low: (number | null)[] = []
     const high: (number | null)[] = []
     for (const r of rows) {
-      const perDay = [...(byHour.get(r.hour)?.values() ?? [])]
-        .filter((t) => t > 0)
-        .map((t) => 60 / t)
-      if (perDay.length === 0) {
+      const perRoute = byHour.get(r.hour) ?? []
+      if (perRoute.length === 0) {
         median.push(null)
         low.push(null)
         high.push(null)
         continue
       }
-      median.push(Number(percentile(perDay, 50).toFixed(1)))
-      low.push(Number(Math.min(...perDay).toFixed(1)))
-      high.push(Number(Math.max(...perDay).toFixed(1)))
+      median.push(Number(percentile(perRoute, 50).toFixed(1)))
+      low.push(Number(Math.min(...perRoute).toFixed(1)))
+      high.push(Number(Math.max(...perRoute).toFixed(1)))
     }
 
     return {

@@ -57,13 +57,17 @@ Index = rank by value ascending (1..48)
 | Start/End/Time Slot | format labels from timeslot_1 |
 | Selected time interval | MAX(Timeslot_2) − MIN(timeslot_1) over filter context |
 | Selected time interval_min | HOUR(interval)*60 + MINUTE(interval) |
-| Headway (mins) | Selected time interval_min / COUNT(bus_trip_key) |
+| Headway (mins) | Per route-direction-day: (MAX(trip_start_time) − MIN(trip_start_time)) / (n − 1), n ≥ 2. Network or period: trip-weighted mean of those line-day values. |
 | Selected time interval1 | MAX(Time Slot[End Time1]) − MIN(Time Slot[Time]) *(slicer-driven)* |
 | Headway (mins)1 | same pattern using interval1 |
 
-Note: PBIX divides by **COUNT** (n departures), not (n−1). That matches Python
-`kpi_headway_mins` and Temporal peak/off-peak headway. Mean inter-departure
-gap would be span/(n−1); do not mix the two.
+**Headway note.** The PBIX measure is `Selected time interval_min / COUNT(bus_trip_key)` on the
+current filter context (span of 30-min timeslots ÷ n). That is a service-density ratio, not an
+interval between trips on one line. Applied network-wide it collapses parallel routes into one
+clock span and understates headway by a large factor. Python `kpi_headway_mins` therefore
+groups by `service_date` + `route_direction_key`, uses trip start times with divisor (n − 1),
+and trip-weights those line-days. Temporal peak/off-peak uses the same grouping on hourly
+bins (a one-hour bin is a 60-minute window). Do not restore the pooled span/n form.
 
 ---
 

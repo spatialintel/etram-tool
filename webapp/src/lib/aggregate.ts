@@ -155,6 +155,62 @@ export function periodKpisFromDaily(rows: KpiDailyRow[]): PeriodKpis {
   }
 }
 
+/**
+ * Headway from hourly trip counts: per service-date × route, then trip-weighted.
+ * Span is first–last occupied hour; a single hour is treated as a 60-minute window.
+ * Needs at least two trips on that line-day (or in `hours` if provided).
+ */
+export function headwayMinsFromTemporal(
+  rows: TemporalRow[],
+  hours?: Set<number>,
+): number | null {
+  const map = new Map<string, { minH: number; maxH: number; trips: number }>()
+  for (const r of rows) {
+    const n = r.trips || 0
+    if (n <= 0) continue
+    if (hours && !hours.has(r.start_hour)) continue
+    const key = `${r.service_date}|${r.route_code}`
+    const e = map.get(key)
+    if (!e) {
+      map.set(key, { minH: r.start_hour, maxH: r.start_hour, trips: n })
+    } else {
+      if (r.start_hour < e.minH) e.minH = r.start_hour
+      if (r.start_hour > e.maxH) e.maxH = r.start_hour
+      e.trips += n
+    }
+  }
+  let weighted = 0
+  let weight = 0
+  for (const e of map.values()) {
+    if (e.trips < 2) continue
+    let span = (e.maxH - e.minH) * 60
+    if (span <= 0) span = 60
+    weighted += (span / (e.trips - 1)) * e.trips
+    weight += e.trips
+  }
+  if (weight <= 0) return null
+  return weighted / weight
+}
+
+/** Implied interval in one clock hour on one route-day: 60 / trips in that hour. */
+export function hourlyRouteHeadways(rows: TemporalRow[]): Map<number, number[]> {
+  const trips = new Map<string, number>()
+  for (const r of rows) {
+    const n = r.trips || 0
+    if (n <= 0) continue
+    const key = `${r.start_hour}|${r.service_date}|${r.route_code}`
+    trips.set(key, (trips.get(key) || 0) + n)
+  }
+  const byHour = new Map<number, number[]>()
+  for (const [key, n] of trips) {
+    const hour = Number(key.slice(0, key.indexOf('|')))
+    const list = byHour.get(hour) ?? []
+    list.push(60 / n)
+    byHour.set(hour, list)
+  }
+  return byHour
+}
+
 /* Routes */
 
 export type RouteAgg = {

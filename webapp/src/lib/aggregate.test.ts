@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { aggregateDaily, aggregateHours, aggregateRoutes, aggregateStops, bucketKey, periodKpisFromDaily, periodTotals, weekStart } from './aggregate'
+import { aggregateDaily, aggregateHours, aggregateRoutes, aggregateStops, bucketKey, headwayMinsFromTemporal, hourlyRouteHeadways, periodKpisFromDaily, periodTotals, weekStart } from './aggregate'
 import type { DailyRow, KpiDailyRow, RouteTrendRow, StopMapRow, TemporalRow } from '../types'
 
 const daily = (service_date: string, patch: Partial<DailyRow> = {}): DailyRow => ({
@@ -194,6 +194,51 @@ describe('aggregateHours', () => {
 
   it('orders by hour', () => {
     expect(aggregateHours([th('2026-04-01', 18), th('2026-04-01', 6)]).map((h) => h.hour)).toEqual([6, 18])
+  })
+})
+
+describe('headwayMinsFromTemporal', () => {
+  const th = (service_date: string, route_code: string, start_hour: number, trips: number): TemporalRow => ({
+    service_date,
+    route_code,
+    start_hour,
+    ridership: trips * 10,
+    revenue: trips * 100,
+    trips,
+  })
+
+  it('does not pool parallel routes into one clock span', () => {
+    const rows = []
+    for (let i = 0; i < 10; i++) {
+      rows.push(th('2026-05-01', `R${i}`, 8, 1), th('2026-05-01', `R${i}`, 9, 1))
+    }
+    // Each route: 60 min span / 1 = 60. Pooled span/n would be 60/20 = 3.
+    expect(headwayMinsFromTemporal(rows)).toBe(60)
+  })
+
+  it('treats a single occupied hour as a 60-minute window', () => {
+    expect(headwayMinsFromTemporal([th('2026-05-01', 'R1', 8, 4)])).toBe(20)
+  })
+
+  it('trip-weights route-days', () => {
+    const rows = [
+      th('2026-05-01', 'A', 6, 1),
+      th('2026-05-01', 'A', 7, 1),
+      th('2026-05-01', 'B', 6, 3),
+    ]
+    // A: 60/1=60, n=2; B: 60/2=30, n=3; (60*2+30*3)/5 = 42
+    expect(headwayMinsFromTemporal(rows)).toBe(42)
+  })
+})
+
+describe('hourlyRouteHeadways', () => {
+  it('uses 60/trips per route, not per network hour', () => {
+    const rows: TemporalRow[] = [
+      { service_date: '2026-05-01', route_code: 'R1', start_hour: 8, ridership: 10, revenue: 100, trips: 1 },
+      { service_date: '2026-05-01', route_code: 'R2', start_hour: 8, ridership: 10, revenue: 100, trips: 1 },
+    ]
+    const byHour = hourlyRouteHeadways(rows)
+    expect(byHour.get(8)).toEqual([60, 60])
   })
 })
 

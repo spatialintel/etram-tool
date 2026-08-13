@@ -121,9 +121,9 @@ export const DEFINITIONS = {
   headway: {
     label: 'Headway',
     unit: 'min',
-    formula: 'span of first to last trip (min) ÷ trip count',
-    how: 'Minutes from the first trip start to the last trip end in the selection, divided by the number of trips. Peak and off-peak use the same method on hourly bins.',
-    source: 'Trip start and end times',
+    formula: 'per route: (last start − first start) ÷ (trips − 1); network: trip-weighted mean',
+    how: 'On each route and direction, minutes from the first trip start to the last, divided by one less than the number of trips (needs two or more trips). The network figure weights those intervals by trip count. Peak and off-peak use the same method on hourly bins for each route-day.',
+    source: 'Trip start times',
   },
   vehicle_km: {
     label: 'Vehicle-km',

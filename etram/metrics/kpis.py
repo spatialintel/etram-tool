@@ -111,23 +111,62 @@ def kpi_vehicle_km_per_bus(route_day: pd.DataFrame) -> float | None:
     return None if vkm is None else vkm / buses
 
 
-def kpi_headway_mins(trip_summary: pd.DataFrame) -> float | None:
-    """PBIX Headway (mins) = Selected time interval_min / COUNT(bus_trip_key).
+def _line_day_headway(starts: pd.Series) -> tuple[float | None, int]:
+    """Mean interval on one route-direction-day: (last start − first start) / (n − 1)."""
+    s = pd.to_datetime(starts, errors="coerce").dropna().sort_values()
+    n = int(len(s))
+    if n < 2:
+        return None, n
+    span_min = (s.iloc[-1] - s.iloc[0]).total_seconds() / 60.0
+    if span_min <= 0:
+        return None, n
+    return float(span_min / (n - 1)), n
 
-    Span = MAX(timeslot_2) − MIN(timeslot_1). Divisor is trip count (n), not (n−1).
-    True mean inter-departure interval would use (n−1); that is not the PBIX measure.
+
+def kpi_headway_mins(trip_summary: pd.DataFrame) -> float | None:
+    """Observed headway: trip-weighted mean of per route-direction-day intervals.
+
+    Pooling every route into one clock span / trip count understates headway
+    (parallel services look like a metro). Each line-day uses
+    (MAX(trip_start) − MIN(trip_start)) / (n − 1) with n ≥ 2; the network
+    figure weights those by trip count.
     """
     if trip_summary.empty:
         return None
-    t1 = pd.to_datetime(trip_summary["timeslot_1"], errors="coerce").dropna()
-    t2 = pd.to_datetime(trip_summary["timeslot_2"], errors="coerce").dropna()
-    if t1.empty or t2.empty:
+    df = trip_summary
+    if "trip_start_time" in df.columns:
+        starts = pd.to_datetime(df["trip_start_time"], errors="coerce")
+    else:
+        starts = pd.Series(pd.NaT, index=df.index)
+    if starts.notna().sum() == 0 and "timeslot_1" in df.columns:
+        starts = pd.to_datetime(df["timeslot_1"], errors="coerce")
+    work = df.assign(_start=starts).dropna(subset=["_start"])
+    if work.empty:
         return None
-    span_min = (t2.max() - t1.min()).total_seconds() / 60.0
-    n_departures = len(trip_summary)
-    if n_departures < 1:
+
+    keys: list[str] = []
+    if "service_date" in work.columns:
+        keys.append("service_date")
+    if "route_direction_key" in work.columns:
+        keys.append("route_direction_key")
+    elif "route_code" in work.columns:
+        keys.append("route_code")
+
+    weighted = 0.0
+    weight = 0.0
+    if keys:
+        grouped = work.groupby(keys, dropna=False, sort=False)["_start"]
+    else:
+        grouped = [(None, work["_start"])]
+    for _, g in grouped:
+        hw, n = _line_day_headway(g)
+        if hw is None:
+            continue
+        weighted += hw * n
+        weight += n
+    if weight == 0:
         return None
-    return float(span_min / n_departures)
+    return float(weighted / weight)
 
 
 def summarize_kpis(
