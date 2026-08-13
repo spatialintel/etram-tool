@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useToast } from '../components/ui'
 import type { DashboardData, DashboardMeta } from '../types'
 
 const SESSION_KEY = 'etram.dashboard.session'
@@ -17,7 +18,7 @@ export type UseDashboardData = {
   clear: () => void
 }
 
-function readSession(): DashboardData | null {
+export function readSession(): DashboardData | null {
   try {
     const raw = sessionStorage.getItem(SESSION_KEY)
     if (!raw) return null
@@ -27,12 +28,13 @@ function readSession(): DashboardData | null {
   }
 }
 
-function writeSession(d: DashboardData | null) {
+export function writeSession(d: DashboardData | null): boolean {
   try {
     if (!d) sessionStorage.removeItem(SESSION_KEY)
     else sessionStorage.setItem(SESSION_KEY, JSON.stringify(d))
+    return true
   } catch {
-    /* quota / private mode — ignore */
+    return false // quota exceeded, or private/incognito mode blocking storage entirely
   }
 }
 
@@ -45,6 +47,7 @@ export function useDashboardData(): UseDashboardData {
   const [data, setData] = useState<DashboardData | null>(() => readSession())
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const toast = useToast()
 
   useEffect(() => {
     // Intentionally do not fetch /data/* — portal stays empty until upload.
@@ -55,12 +58,21 @@ export function useDashboardData(): UseDashboardData {
     setError(null)
   }, [])
 
-  const replace = useCallback((d: DashboardData) => {
-    writeSession(d)
-    setData(d)
-    setError(null)
-    setLoading(false)
-  }, [])
+  const replace = useCallback(
+    (d: DashboardData) => {
+      const persisted = writeSession(d)
+      if (!persisted) {
+        toast.push(
+          "Loaded, but this load is too large to keep across a page refresh in this browser tab (storage limit). It's fully usable now — re-upload if you reload the page.",
+          'warn',
+        )
+      }
+      setData(d)
+      setError(null)
+      setLoading(false)
+    },
+    [toast],
+  )
 
   const clear = useCallback(() => {
     writeSession(null)

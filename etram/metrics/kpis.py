@@ -84,6 +84,19 @@ def kpi_trips_per_bus(route_day: pd.DataFrame) -> float | None:
 
 
 def kpi_vehicle_km(route_day: pd.DataFrame) -> float | None:
+    # docs/phase0/03-metric-spec.md literally reads:
+    #   "Vehicle KM = SUM(route_length_route) x SUM(n_trips)"
+    # That's the correct DAX only when route_length_route lives on a routes
+    # DIMENSION table (one row per route). Here it's denormalized onto the
+    # route_day FACT table (route_day.py repeats the same length on every
+    # day-row for a route). Taking that literally — SUM(length) x SUM(trips)
+    # over a multi-day window — sums the same route length once per day
+    # before multiplying, inflating the result by a spurious extra factor of
+    # "number of days". The row-wise SUMX below (length_i x trips_i, summed)
+    # is the metrically correct one and is what's implemented; do not "fix"
+    # this back to a literal SUM(a)*SUM(b) — that reintroduces the bug.
+    # Verified equivalent to the spec text only in the single-row case
+    # (one route, one day), where both formulas coincide.
     if route_day.empty:
         return None
     return float((route_day["route_length_route"].astype(float) * route_day["n_trips"].astype(float)).sum())
