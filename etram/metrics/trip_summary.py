@@ -27,6 +27,9 @@ def build_trip_summary(
 ) -> pd.DataFrame:
     t = tickets.copy()
     t["service_date"] = pd.to_datetime(t["service_date"]).dt.normalize()
+    # Conductor packs often have no trip end; commercial speed then stays blank.
+    if "trip_end_time" not in t.columns:
+        t["trip_end_time"] = pd.NaT
 
     gcols = ["agency_id", "service_date", "route_code", "route_direction_key", "bus_trip_key"]
     agg = (
@@ -38,6 +41,7 @@ def build_trip_summary(
             revenue_trip=("revenue", "sum"),
             pax_km=("pax_km", "sum"),
             trip_start_time=("trip_start_time", "min"),
+            trip_end_time=("trip_end_time", "max"),
             driver_id=("driver_id", "first"),
             conductor_id=("conductor_id", "first"),
         )

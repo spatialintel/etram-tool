@@ -8,6 +8,7 @@ import re
 import subprocess
 import sys
 import threading
+import traceback
 import uuid
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
@@ -24,7 +25,7 @@ from etram._file_lock import FileLock
 from etram.ingest.load import run_ingest
 from etram.metrics.build import run_metrics
 
-__version__ = "0.3.0"
+__version__ = "0.3.1"
 MAX_UPLOAD_BYTES = 200 * 1024 * 1024
 MAX_STOP_SEQ_FILES = 62
 AGENCY_ID_RE = re.compile(r"^[a-z][a-z0-9_-]{0,63}$")
@@ -363,6 +364,8 @@ def _run_job(
             _update_job(job_id, status="succeeded", result_path=str(result_path), error=None)
     except Exception as e:
         _append_job_log(job_id, f"Job failed: {e}")
+        for line in traceback.format_exc().strip().splitlines()[-8:]:
+            _append_job_log(job_id, line)
         _update_job(job_id, status="failed", error=str(e))
     finally:
         if acquired:

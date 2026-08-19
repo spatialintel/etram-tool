@@ -141,3 +141,92 @@ def test_kpi_commercial_speed_drops_zero_duration() -> None:
     )
     assert kpi_commercial_speed_kmh(ts) == 20.0
 
+
+def test_trip_summary_carries_trip_end_time_for_commercial_speed() -> None:
+    """Upload compile calls summarize_kpis on build_trip_summary output."""
+    from etram.metrics.kpis import kpi_commercial_speed_kmh
+    from etram.metrics.trip_summary import build_trip_summary
+
+    tickets = pd.DataFrame(
+        {
+            "agency_id": ["bhavnagar", "bhavnagar"],
+            "service_date": ["2026-05-01", "2026-05-01"],
+            "route_code": ["R1", "R1"],
+            "route_direction_key": ["R1-UP", "R1-UP"],
+            "bus_trip_key": ["GJ-1", "GJ-1"],
+            "vehicle_id": ["GJ", "GJ"],
+            "trip_no": [1, 1],
+            "total_passengers": [2, 3],
+            "revenue": [10.0, 20.0],
+            "pax_km": [4.0, 6.0],
+            "trip_start_time": ["2026-05-01 08:00:00", "2026-05-01 08:05:00"],
+            "trip_end_time": ["2026-05-01 08:50:00", "2026-05-01 09:00:00"],
+            "driver_id": ["d1", "d1"],
+            "conductor_id": ["c1", "c1"],
+        }
+    )
+    vehicles = pd.DataFrame(
+        {"agency_id": ["bhavnagar"], "vehicle_id": ["GJ"], "capacity": [40]}
+    )
+    routes = pd.DataFrame(
+        {
+            "agency_id": ["bhavnagar"],
+            "route_code": ["R1"],
+            "route_direction_key": ["R1-UP"],
+            "route_length_km": [20.0],
+        }
+    )
+    ts = build_trip_summary(tickets, vehicles, routes)
+    assert "trip_end_time" in ts.columns
+    assert kpi_commercial_speed_kmh(ts) == pytest.approx(20.0)
+
+
+def test_trip_summary_missing_ticket_end_time_does_not_crash() -> None:
+    from etram.metrics.kpis import kpi_commercial_speed_kmh, summarize_kpis
+    from etram.metrics.trip_summary import build_trip_summary
+
+    tickets = pd.DataFrame(
+        {
+            "agency_id": ["bhavnagar"],
+            "service_date": ["2026-05-01"],
+            "route_code": ["R1"],
+            "route_direction_key": ["R1-UP"],
+            "bus_trip_key": ["GJ-1"],
+            "vehicle_id": ["GJ"],
+            "trip_no": [1],
+            "total_passengers": [2],
+            "revenue": [10.0],
+            "pax_km": [4.0],
+            "trip_start_time": ["2026-05-01 08:00:00"],
+            "driver_id": ["d1"],
+            "conductor_id": ["c1"],
+        }
+    )
+    vehicles = pd.DataFrame(
+        {"agency_id": ["bhavnagar"], "vehicle_id": ["GJ"], "capacity": [40]}
+    )
+    routes = pd.DataFrame(
+        {
+            "agency_id": ["bhavnagar"],
+            "route_code": ["R1"],
+            "route_direction_key": ["R1-UP"],
+            "route_length_km": [20.0],
+        }
+    )
+    ts = build_trip_summary(tickets, vehicles, routes)
+    rd = pd.DataFrame(
+        {
+            "ridership": [2],
+            "revenue": [10.0],
+            "n_trips": [1],
+            "n_buses": [1],
+            "pax_km": [4.0],
+            "capacity_km": [800.0],
+            "route_length_route": [20.0],
+        }
+    )
+    kpis = summarize_kpis(ts, rd)
+    assert "trip_end_time" in ts.columns
+    assert kpi_commercial_speed_kmh(ts) is None
+    assert kpis["commercial_speed_kmh"] is None
+

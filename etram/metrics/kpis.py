@@ -175,7 +175,11 @@ def kpi_commercial_speed_kmh(trip_summary: pd.DataFrame) -> float | None:
     Drops trips with missing times, non-positive duration, or duration outside
     3 minutes–6 hours (clock / fill-down errors).
     """
-    if trip_summary.empty or "route_length_km" not in trip_summary.columns:
+    if (
+        trip_summary.empty
+        or "route_length_km" not in trip_summary.columns
+        or "trip_end_time" not in trip_summary.columns
+    ):
         return None
     start = pd.to_datetime(trip_summary["trip_start_time"], errors="coerce")
     end = pd.to_datetime(trip_summary["trip_end_time"], errors="coerce")
