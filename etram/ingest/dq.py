@@ -201,11 +201,18 @@ def build_dq_report(
     conductor_cov = _coverage(tickets["conductor_id"])
     has_coords = stops["latitude"].notna().any() and stops["longitude"].notna().any()
 
+    child_sum = 0.0
+    if "child_passengers" in tickets.columns:
+        child_sum = float(pd.to_numeric(tickets["child_passengers"], errors="coerce").fillna(0).sum())
+    cat_cov = _coverage(tickets["pass_category"]) if "pass_category" in tickets.columns else 0.0
+
     feature_gates = {
         "gender_charts": gender_cov >= gender_threshold,
         "driver_speed": driver_cov >= driver_threshold,
         "conductor_revenue": conductor_cov > 0,
         "ba_maps": bool(has_coords),
+        "child_share": child_sum > 0,
+        "pass_mix": cat_cov >= 0.3,
     }
 
     blocked = [r for r in rules if r["level"] == "BLOCK" and (

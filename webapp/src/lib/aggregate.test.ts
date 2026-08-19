@@ -101,6 +101,7 @@ describe('periodKpisFromDaily', () => {
     vehicle_km: 40,
     vehicle_km_per_bus: 20,
     headway_mins: 12,
+    commercial_speed_kmh: 18,
     ...patch,
   })
 
@@ -121,6 +122,14 @@ describe('periodKpisFromDaily', () => {
       kpi('2026-04-02', { n_trips: 9, headway_mins: 10 }),
     ])
     expect(out.headway_mins).toBeCloseTo(12, 10)
+  })
+
+  it('trip-weights commercial speed across days', () => {
+    const out = periodKpisFromDaily([
+      kpi('2026-04-01', { n_trips: 1, commercial_speed_kmh: 10 }),
+      kpi('2026-04-02', { n_trips: 9, commercial_speed_kmh: 20 }),
+    ])
+    expect(out.commercial_speed_kmh).toBeCloseTo(19, 10)
   })
 })
 

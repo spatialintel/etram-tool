@@ -309,21 +309,47 @@ def main(agency_id: str = "bhavnagar", out_path: Path | None = None) -> None:
     # holds ~80% of ridership, enough for the flow matrix to read as a matrix
     # rather than a scatter of isolated cells.
     od_top: list[dict] = []
+    pass_category: list[dict] = []
     tickets_path = canon / "tickets.parquet"
     if tickets_path.exists():
         try:
-            tickets = pd.read_parquet(
-                tickets_path,
-                columns=[
-                    "service_date",
-                    "route_code",
-                    "origin_abbr",
-                    "destination_abbr",
-                    "total_passengers",
-                    "revenue",
-                ],
-            )
+            wanted = [
+                "service_date",
+                "route_code",
+                "origin_abbr",
+                "destination_abbr",
+                "total_passengers",
+                "revenue",
+                "child_passengers",
+                "pass_category",
+            ]
+            from pyarrow.parquet import read_schema
+
+            have = set(read_schema(tickets_path).names)
+            tickets = pd.read_parquet(tickets_path, columns=[c for c in wanted if c in have])
             dates = pd.to_datetime(tickets["service_date"])
+            date_str = dates.dt.strftime("%Y-%m-%d")
+            if "child_passengers" in tickets.columns:
+                child = pd.DataFrame(
+                    {
+                        "service_date": date_str,
+                        "child_ridership": pd.to_numeric(
+                            tickets["child_passengers"], errors="coerce"
+                        ).fillna(0),
+                    }
+                )
+                child_daily = child.groupby("service_date", as_index=False)["child_ridership"].sum()
+                daily = daily.merge(child_daily, on="service_date", how="left")
+                daily["child_ridership"] = daily["child_ridership"].fillna(0)
+            if "pass_category" in tickets.columns and "total_passengers" in tickets.columns:
+                mix = tickets.dropna(subset=["pass_category"]).copy()
+                mix["service_date"] = date_str.loc[mix.index]
+                mix["passengers"] = pd.to_numeric(mix["total_passengers"], errors="coerce").fillna(0)
+                pass_category = _records(
+                    mix.groupby(["service_date", "pass_category"], as_index=False).agg(
+                        passengers=("passengers", "sum")
+                    )
+                )
             clean = tickets.dropna(subset=["origin_abbr", "destination_abbr", "route_code"]).copy()
             # Monday-anchored week so a partial first or last week still lands
             # in a bucket the UI can compare against the selected range.
@@ -350,6 +376,7 @@ def main(agency_id: str = "bhavnagar", out_path: Path | None = None) -> None:
             od_top = _records(od)
         except Exception:
             od_top = []
+            pass_category = []
 
     trip_lf = trip["pax_km"] / trip["capacity_km"].replace(0, pd.NA)
     trip_distribution = _bin_histogram(trip["ridership_trip"], metric="ridership_trip", bins=20)
@@ -428,6 +455,7 @@ def main(agency_id: str = "bhavnagar", out_path: Path | None = None) -> None:
         "stop_sequence_geo": stop_sequence_geo,
         "ba_line_best_trip": _records(ba_line_best_trip),
         "od_top": od_top,
+        "pass_category": pass_category,
     }
 
     payload = sanitize_payload(payload)

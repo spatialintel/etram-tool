@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pandas as pd
+import pytest
 
 from etram.metrics.kpis import kpi_epkm, kpi_epkm_route, kpi_headway_mins, kpi_lf, kpi_vehicle_km
 
@@ -112,3 +113,31 @@ def test_kpi_headway_skips_single_trip_lines() -> None:
         }
     )
     assert kpi_headway_mins(ts) == 30.0
+
+
+def test_kpi_commercial_speed_is_length_over_hours() -> None:
+    from etram.metrics.kpis import kpi_commercial_speed_kmh
+
+    ts = pd.DataFrame(
+        {
+            "route_length_km": [20.0, 20.0],
+            "trip_start_time": ["2026-05-01 08:00:00", "2026-05-01 10:00:00"],
+            "trip_end_time": ["2026-05-01 09:00:00", "2026-05-01 12:00:00"],
+        }
+    )
+    # 20/1 + 20/2 hours → 40 km / 3 h = 13.333
+    assert kpi_commercial_speed_kmh(ts) == pytest.approx(40.0 / 3.0)
+
+
+def test_kpi_commercial_speed_drops_zero_duration() -> None:
+    from etram.metrics.kpis import kpi_commercial_speed_kmh
+
+    ts = pd.DataFrame(
+        {
+            "route_length_km": [10.0, 20.0],
+            "trip_start_time": ["2026-05-01 08:00:00", "2026-05-01 10:00:00"],
+            "trip_end_time": ["2026-05-01 08:00:00", "2026-05-01 11:00:00"],
+        }
+    )
+    assert kpi_commercial_speed_kmh(ts) == 20.0
+

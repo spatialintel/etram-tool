@@ -123,6 +123,7 @@ export type PeriodKpis = {
   vehicle_km: number | null
   vehicle_km_per_bus: number | null
   headway_mins: number | null
+  commercial_speed_kmh: number | null
 }
 
 export function periodKpisFromDaily(rows: KpiDailyRow[]): PeriodKpis {
@@ -133,6 +134,7 @@ export function periodKpisFromDaily(rows: KpiDailyRow[]): PeriodKpis {
   let bus_days = 0
   let trips = 0
   let headway_span = 0
+  let speed_span = 0
   for (const r of rows) {
     pax_km += r.pax_km || 0
     capacity_km += r.capacity_km || 0
@@ -144,6 +146,13 @@ export function periodKpisFromDaily(rows: KpiDailyRow[]): PeriodKpis {
     if (typeof r.headway_mins === 'number' && Number.isFinite(r.headway_mins) && n > 0) {
       headway_span += r.headway_mins * n
     }
+    if (
+      typeof r.commercial_speed_kmh === 'number' &&
+      Number.isFinite(r.commercial_speed_kmh) &&
+      n > 0
+    ) {
+      speed_span += r.commercial_speed_kmh * n
+    }
   }
   return {
     lf: capacity_km > 0 ? pax_km / capacity_km : null,
@@ -152,6 +161,7 @@ export function periodKpisFromDaily(rows: KpiDailyRow[]): PeriodKpis {
     vehicle_km: vehicle_km > 0 ? vehicle_km : null,
     vehicle_km_per_bus: bus_days > 0 && vehicle_km > 0 ? vehicle_km / bus_days : null,
     headway_mins: trips > 0 && headway_span > 0 ? headway_span / trips : null,
+    commercial_speed_kmh: trips > 0 && speed_span > 0 ? speed_span / trips : null,
   }
 }
 

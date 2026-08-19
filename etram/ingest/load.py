@@ -421,6 +421,8 @@ def _required_columns_report(
             "driver_speed": False,
             "conductor_revenue": False,
             "ba_maps": False,
+            "child_share": False,
+            "pass_mix": False,
         },
         "load_ok": False,
     }

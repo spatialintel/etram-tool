@@ -17,6 +17,7 @@ import type { RouteAgg } from '../lib/aggregate'
 import { applyFilters, splitByComparison } from '../lib/filters'
 import type { FilterState } from '../lib/filters'
 import { fmtDateWithWeekday, fmtDelta, fmtInt, fmtKm, fmtMoney, fmtPct } from '../lib/format'
+import { MOHUA_VKM_PER_BUS_DAY } from '../lib/planning'
 import type { DashboardData, KpiDailyRow, TripDistributionBin } from '../types'
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
@@ -190,6 +191,7 @@ export function EfficiencyPage({ data, filters }: { data: DashboardData; filters
       headway_mins: pick('headway_mins'),
       trips_per_bus: pick('trips_per_bus'),
       LF: pick('LF'),
+      commercial_speed_kmh: pick('commercial_speed_kmh'),
     }
   }, [kpiRows])
 
@@ -300,6 +302,17 @@ export function EfficiencyPage({ data, filters }: { data: DashboardData; filters
         format: (v: number) => `${fmtInt(Math.round(v))} km`,
         lowerIsBetter: false,
       },
+      {
+        key: 'speed',
+        title: 'Commercial speed',
+        subtitle: 'Route length divided by trip duration, by day',
+        values: kpiSeries.commercial_speed_kmh,
+        name: 'Speed',
+        color: '#2563EB',
+        unit: 'km/h',
+        format: (v: number) => `${v.toFixed(1)} km/h`,
+        lowerIsBetter: false,
+      },
     ]
     return defs.map((d) => {
       const stats = seriesStats(kpiSeries.dates, d.values)
@@ -381,10 +394,17 @@ export function EfficiencyPage({ data, filters }: { data: DashboardData; filters
           definitionKey="vehicle_km"
           sub={
             kpiPeriod.vehicle_km_per_bus != null
-              ? `${fmtInt(Math.round(kpiPeriod.vehicle_km_per_bus))} km/bus`
+              ? `${fmtInt(Math.round(kpiPeriod.vehicle_km_per_bus))} km/bus \u00B7 MoHUA floor ${MOHUA_VKM_PER_BUS_DAY} km/bus/day`
               : 'Vehicle-km in the selected period'
           }
           spark={kpiSeries.vehicle_km.filter((v): v is number => v != null)}
+        />
+        <StatCard
+          label="Commercial speed"
+          value={dash(kpiPeriod.commercial_speed_kmh, (v) => `${v.toFixed(1)} km/h`)}
+          sub="Route length divided by trip duration"
+          definitionKey="commercial_speed"
+          spark={kpiSeries.commercial_speed_kmh.filter((v): v is number => v != null)}
         />
         <StatCard
           label="Average headway"

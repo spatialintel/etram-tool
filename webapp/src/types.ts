@@ -33,6 +33,7 @@ export interface DailyRow {
   week_end?: string
   male_ridership?: number
   female_ridership?: number
+  child_ridership?: number
 }
 
 export interface RouteTrendRow {
@@ -127,6 +128,7 @@ export interface KpiDailyRow {
   vehicle_km: number | null
   vehicle_km_per_bus: number | null
   headway_mins: number | null
+  commercial_speed_kmh?: number | null
 }
 
 export interface SlotSummaryRow {
@@ -162,6 +164,12 @@ export interface CrewSummaryRow {
   revenue: number
   pax_km: number
   vehicle_km?: number
+}
+
+export interface PassCategoryRow {
+  service_date: string
+  pass_category: string
+  passengers: number
 }
 
 export interface OdTopRow {
@@ -209,6 +217,7 @@ export interface DashboardData {
   trip_distribution?: TripDistributionBin[]
   stop_sequence_geo?: StopSequenceGeoRow[]
   od_top?: OdTopRow[]
+  pass_category?: PassCategoryRow[]
 }
 
 export type Page =

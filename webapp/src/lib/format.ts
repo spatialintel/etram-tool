@@ -30,6 +30,7 @@ export const UNIT_LABEL = {
   min: 'min',
   count: '',
   ratio: 'ratio (unitless)',
+  kmh: 'km/h',
 } as const
 
 export type Unit = keyof typeof UNIT_LABEL

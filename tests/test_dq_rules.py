@@ -213,6 +213,19 @@ def test_gender_feature_gate_threshold():
     assert report_strict["feature_gates"]["gender_charts"] is False
 
 
+def test_child_share_and_pass_mix_gates():
+    tables = _clean_tables()
+    report = build_dq_report("bhavnagar", tables)
+    assert report["feature_gates"]["child_share"] is False
+    assert report["feature_gates"]["pass_mix"] is False
+
+    tables["tickets"]["child_passengers"] = [0, 0, 2]
+    tables["tickets"]["pass_category"] = ["General", "Pass", None]
+    report2 = build_dq_report("bhavnagar", tables)
+    assert report2["feature_gates"]["child_share"] is True
+    assert report2["feature_gates"]["pass_mix"] is True
+
+
 # --- load.py: required-columns failure path ---------------------------------
 
 

@@ -138,6 +138,7 @@ export const DEFINITIONS = {
     formula: 'vehicle-km ÷ bus-days',
     how: 'Total vehicle-km divided by bus-days — average km operated per bus-day.',
     source: 'Trips, route lengths, and fleet in service',
+    note: 'The 200 km/bus/day marker is the MoHUA/CEPT city-bus planning floor.',
   },
   pax_km: {
     label: 'Passenger-km',
@@ -181,6 +182,55 @@ export const DEFINITIONS = {
     formula: 'peak-hour ridership ÷ total ridership',
     how: 'Ridership in peak hours (75th-percentile rule) as a share of all ridership in the selected hours and days.',
     source: 'Hourly ridership',
+  },
+  commercial_speed: {
+    label: 'Commercial speed',
+    unit: 'kmh',
+    formula: 'Σ route length ÷ Σ trip hours',
+    how: 'Trip distance divided by time from trip start to trip end, summed across trips. Trips shorter than 3 minutes or longer than 6 hours are dropped.',
+    source: 'Trips and route lengths',
+  },
+  mlp_stop: {
+    label: 'Max-load stop',
+    unit: 'pax',
+    formula: 'stop with the highest peak onboard load',
+    how: 'Among stops in the selection, the stop whose peak onboard load is highest. Peak load is a maximum, not a sum of daily peaks.',
+    source: 'Tickets and stop sequence',
+  },
+  child_share: {
+    label: 'Child share',
+    unit: 'pct',
+    formula: 'child passengers ÷ ridership',
+    how: 'Child passengers on tickets divided by total passengers in the selection.',
+    source: 'Tickets',
+  },
+  pass_mix: {
+    label: 'Pass category mix',
+    unit: 'pct',
+    formula: 'passengers in each pass category ÷ ticketed passengers',
+    how: 'Ticket passengers grouped by pass category for the selected dates.',
+    source: 'Tickets',
+  },
+  pax_per_vkm: {
+    label: 'Passengers per vehicle-km',
+    unit: 'ratio',
+    formula: 'ridership ÷ vehicle-km',
+    how: 'Total boardings divided by vehicle-kilometres operated in the selection.',
+    source: 'Tickets, trips, and route lengths',
+  },
+  fare_per_pax_km: {
+    label: 'Fare per passenger-km',
+    unit: 'inr',
+    formula: 'revenue ÷ passenger-km',
+    how: 'Total fare revenue divided by passenger-kilometres — yield per kilometre travelled by passengers.',
+    source: 'Tickets and the distance workbook',
+  },
+  short_turn: {
+    label: 'Short-turn signal',
+    unit: 'count',
+    formula: 'lines whose max-load stop is mid-route',
+    how: 'A line is flagged when its highest peak load sits between about 15% and 70% along the published stop sequence, and is not one of the last two stops.',
+    source: 'Peak load and stop sequence',
   },
 } as const satisfies Record<string, MetricDefinition>
 

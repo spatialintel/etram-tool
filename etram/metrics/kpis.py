@@ -169,6 +169,27 @@ def kpi_headway_mins(trip_summary: pd.DataFrame) -> float | None:
     return float(weighted / weight)
 
 
+def kpi_commercial_speed_kmh(trip_summary: pd.DataFrame) -> float | None:
+    """Network commercial speed: Σ route_length_km / Σ trip hours.
+
+    Drops trips with missing times, non-positive duration, or duration outside
+    3 minutes–6 hours (clock / fill-down errors).
+    """
+    if trip_summary.empty or "route_length_km" not in trip_summary.columns:
+        return None
+    start = pd.to_datetime(trip_summary["trip_start_time"], errors="coerce")
+    end = pd.to_datetime(trip_summary["trip_end_time"], errors="coerce")
+    hours = (end - start).dt.total_seconds() / 3600.0
+    length = pd.to_numeric(trip_summary["route_length_km"], errors="coerce")
+    ok = hours.notna() & length.notna() & (hours > 0.05) & (hours < 6.0) & (length > 0)
+    if int(ok.sum()) == 0:
+        return None
+    denom = float(hours[ok].sum())
+    if denom <= 0:
+        return None
+    return float(length[ok].sum() / denom)
+
+
 def summarize_kpis(
     trip_summary: pd.DataFrame,
     route_day: pd.DataFrame,
@@ -196,4 +217,5 @@ def summarize_kpis(
         "vehicle_km": kpi_vehicle_km(rd) if len(rd) else None,
         "vehicle_km_per_bus": kpi_vehicle_km_per_bus(rd) if len(rd) else None,
         "headway_mins": kpi_headway_mins(ts),
+        "commercial_speed_kmh": kpi_commercial_speed_kmh(ts),
     }

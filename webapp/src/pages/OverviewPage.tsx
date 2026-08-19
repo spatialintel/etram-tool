@@ -24,13 +24,14 @@ import {
   StatusBadge,
 } from '../components/ui'
 import type { StatusBadgeTone } from '../components/ui'
-import { aggregateDaily, aggregateRoutes, periodKpisFromDaily, periodTotals } from '../lib/aggregate'
+import { aggregateDaily, aggregateRoutes, aggregateStops, periodKpisFromDaily, periodTotals } from '../lib/aggregate'
 import { applyFilters, splitByComparison } from '../lib/filters'
 import type { FilterState } from '../lib/filters'
 import { fmtDateShort, fmtDateWithWeekday, fmtDelta, fmtInt, fmtMoney, fmtPct, fmtWeekday } from '../lib/format'
 import type { DashboardData, KpiDailyRow, Page } from '../types'
 import { getDefinition } from '../lib/definitions'
 import type { DefinitionKey as DefKey } from '../lib/definitions'
+import { MOHUA_VKM_PER_BUS_DAY, networkPeakFromStops, shortTurnHints } from '../lib/planning'
 
 type OpsItem = { key: DefKey; label: string; value: string }
 
@@ -43,6 +44,7 @@ type DrillKey =
   | 'calendar'
   | 'revenue-share'
   | 'gender'
+  | 'pass-mix'
   | 'top-routes'
   | 'ops'
   | 'health'
@@ -151,14 +153,42 @@ export function OverviewPage({
     })
   }, [data.kpi_daily, filters.range])
 
+  const stopAgg = useMemo(
+    () => aggregateStops(applyFilters(data.stop_map, filters)),
+    [data.stop_map, filters],
+  )
+  const peakStop = useMemo(() => networkPeakFromStops(stopAgg), [stopAgg])
+  const shortTurns = useMemo(
+    () => shortTurnHints(stopAgg, data.stop_sequence_geo ?? []),
+    [stopAgg, data.stop_sequence_geo],
+  )
+  const childRidership = useMemo(
+    () => current.reduce((s, d) => s + (d.child_ridership || 0), 0),
+    [current],
+  )
+
+  const passShare = useMemo(() => {
+    if (!data.feature_gates?.pass_mix) return [] as { name: string; value: number }[]
+    const acc = new Map<string, number>()
+    for (const r of applyFilters(data.pass_category ?? [], filters)) {
+      const name = (r.pass_category || '').trim()
+      if (!name) continue
+      acc.set(name, (acc.get(name) || 0) + (r.passengers || 0))
+    }
+    return [...acc.entries()]
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value)
+  }, [data.feature_gates, data.pass_category, filters])
+
   const ops: OpsItem[] = useMemo(() => {
     const period = isV2 ? periodKpisFromDaily(kpiInRange) : null
     const epkm = period?.epkm ?? null
     const epb = period?.epb ?? null
     const headway = period?.headway_mins ?? null
     const vehicleUtil = period?.vehicle_km_per_bus ?? null
+    const speed = period?.commercial_speed_kmh ?? null
     const busDays = totals.tripsPerBus > 0 ? totals.trips / totals.tripsPerBus : 0
-    return [
+    const items: OpsItem[] = [
       {
         key: 'atl',
         label: 'Average trip length (ATL)',
@@ -196,12 +226,75 @@ export function OverviewPage({
         value: fmtOrDash(headway, (v) => `${v.toFixed(1)} min`),
       },
       {
+        key: 'commercial_speed',
+        label: 'Commercial speed',
+        value: fmtOrDash(speed, (v) => `${v.toFixed(1)} km/h`),
+      },
+      {
         key: 'vehicle_utilization',
         label: 'Vehicle utilization',
-        value: fmtOrDash(vehicleUtil, (v) => `${fmtInt(Math.round(v))} km/bus`),
+        value: fmtOrDash(
+          vehicleUtil,
+          (v) => `${fmtInt(Math.round(v))} km/bus (MoHUA floor ${MOHUA_VKM_PER_BUS_DAY})`,
+        ),
+      },
+      {
+        key: 'pax_per_vkm',
+        label: 'Passengers per vehicle-km',
+        value: fmtOrDash(period?.vehicle_km ? totals.ridership / period.vehicle_km : null, (v) => v.toFixed(2)),
+      },
+      {
+        key: 'fare_per_pax_km',
+        label: 'Fare per passenger-km',
+        value: totals.pax_km > 0 ? fmtMoney(totals.revenue / totals.pax_km, { dp: 2 }) : '\u2014',
       },
     ]
-  }, [totals, isV2, kpiInRange])
+    if (peakStop) {
+      items.push({
+        key: 'peak_load',
+        label: 'Peak onboard load',
+        value: fmtInt(peakStop.peakLoad),
+      })
+      items.push({
+        key: 'mlp_stop',
+        label: 'Max-load stop',
+        value: `${peakStop.stopName || peakStop.stopAbbr}`,
+      })
+    }
+    if (data.feature_gates?.child_share && totals.ridership > 0 && childRidership > 0) {
+      items.push({
+        key: 'child_share',
+        label: 'Child share',
+        value: fmtPct(childRidership / totals.ridership),
+      })
+    }
+    if (passShare.length > 0) {
+      const mixTotal = passShare.reduce((s, x) => s + x.value, 0)
+      const top = passShare[0]
+      items.push({
+        key: 'pass_mix',
+        label: 'Largest pass category',
+        value: mixTotal > 0 ? `${top.name} ${fmtPct(top.value / mixTotal)}` : '\u2014',
+      })
+    }
+    if (shortTurns.length > 0) {
+      items.push({
+        key: 'short_turn',
+        label: 'Possible short-turns',
+        value: `${shortTurns.length} line${shortTurns.length === 1 ? '' : 's'} with max load mid-route`,
+      })
+    }
+    return items
+  }, [
+    totals,
+    isV2,
+    kpiInRange,
+    peakStop,
+    childRidership,
+    passShare,
+    shortTurns,
+    data.feature_gates,
+  ])
 
   const calendarOpt = useMemo((): EChartsOption => {
     const days = current.map((d) => ({ date: d.service_date, value: d.ridership }))
@@ -292,6 +385,11 @@ export function OverviewPage({
   const genderOpt = useMemo(
     (): EChartsOption => stackedShareBarOption(genderShare),
     [genderShare],
+  )
+
+  const passOpt = useMemo(
+    (): EChartsOption => stackedShareBarOption(passShare),
+    [passShare],
   )
 
   const comboOpt = useMemo((): EChartsOption => {
@@ -611,6 +709,16 @@ export function OverviewPage({
           ) : (
             <div className="empty-state">No route data in the selected period.</div>
           )}
+        </Card>
+      )}
+
+      {passShare.length > 0 && (
+        <Card
+          title="Pass category mix"
+          subtitle="Share of ticketed passengers"
+          onDrill={() => setDrill('pass-mix')}
+        >
+          <Chart option={passOpt} height={Math.max(140, 28 + passShare.length * 22)} />
         </Card>
       )}
 
@@ -970,6 +1078,18 @@ export function OverviewPage({
           hint: fmtPct(g.value / Math.max(genderShare.reduce((s, x) => s + x.value, 0), 1)),
         }))}
         note="Compare this against the hourly profile on Temporal Analysis: a mix that shifts sharply after dark is a personal-security signal worth acting on."
+      />
+
+      <BreakdownDrawer
+        open={drill === 'pass-mix'}
+        onClose={() => setDrill(null)}
+        title="Pass category mix"
+        subtitle="Ticketed passengers with a recorded pass category"
+        stats={passShare.map((g) => ({
+          label: g.name,
+          value: fmtInt(g.value),
+          hint: fmtPct(g.value / Math.max(passShare.reduce((s, x) => s + x.value, 0), 1)),
+        }))}
       />
 
       <BreakdownDrawer
