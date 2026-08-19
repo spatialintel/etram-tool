@@ -26,6 +26,7 @@ import {
   type Column,
 } from '../components/ui'
 import { aggregateStops, type StopAgg } from '../lib/aggregate'
+import { parseLngLat } from '../lib/geo'
 import { applyFilters } from '../lib/filters'
 import type { FilterState } from '../lib/filters'
 import { fmtDateShort, fmtInt, fmtMoney, fmtPct } from '../lib/format'
@@ -103,7 +104,8 @@ export function StopsPage({ data, filters }: { data: DashboardData; filters: Fil
       longitude: number
     }>()
     for (const s of stopRows) {
-      if (!Number.isFinite(s.latitude) || !Number.isFinite(s.longitude)) continue
+      const ll = parseLngLat(s.latitude, s.longitude)
+      if (!ll) continue
       const e = byAbbr.get(s.stop_abbr)
       if (!e) {
         byAbbr.set(s.stop_abbr, {
@@ -112,8 +114,8 @@ export function StopsPage({ data, filters }: { data: DashboardData; filters: Fil
           boarding: s.boarding,
           alighting: s.alighting,
           peak_load: s.peak_load,
-          latitude: s.latitude,
-          longitude: s.longitude,
+          latitude: ll.latitude,
+          longitude: ll.longitude,
         })
       } else {
         e.boarding += s.boarding

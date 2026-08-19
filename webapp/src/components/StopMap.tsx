@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { LngLatBounds, Map, NavigationControl, Popup } from 'maplibre-gl'
 import type { GeoJSONSource, MapLayerMouseEvent, StyleSpecification } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
+import { parseLngLat } from '../lib/geo'
 
 export type StopMetric = 'boarding' | 'alighting' | 'net' | 'peak_load'
 
@@ -70,8 +71,8 @@ function circleColor(metric: StopMetric): string | unknown[] {
   if (metric === 'net') {
     return [
       'case',
-      ['>', ['get', 'value'], 0], '#1B7A4E',
-      ['<', ['get', 'value'], 0], '#DC2626',
+      ['>', ['to-number', ['get', 'signed']], 0], '#1B7A4E',
+      ['<', ['to-number', ['get', 'signed']], 0], '#DC2626',
       '#D97706',
     ]
   }
@@ -81,9 +82,10 @@ function circleColor(metric: StopMetric): string | unknown[] {
 function toGeo(list: StopPoint[], metric: StopMetric) {
   return {
     type: 'FeatureCollection' as const,
-    features: list
-      .filter((s) => Number.isFinite(s.latitude) && Number.isFinite(s.longitude))
-      .map((s) => ({
+    features: list.flatMap((s) => {
+      const ll = parseLngLat(s.latitude, s.longitude)
+      if (!ll) return []
+      return [{
         type: 'Feature' as const,
         properties: {
           stop_abbr: s.stop_abbr,
@@ -95,8 +97,9 @@ function toGeo(list: StopPoint[], metric: StopMetric) {
           signed: metricValue(s, metric),
           route_direction_key: s.route_direction_key ?? '',
         },
-        geometry: { type: 'Point' as const, coordinates: [s.longitude, s.latitude] },
-      })),
+        geometry: { type: 'Point' as const, coordinates: [ll.longitude, ll.latitude] },
+      }]
+    }),
   }
 }
 
@@ -210,14 +213,22 @@ export function StopMap({
       map.on('mouseleave', 'unclustered', () => { map.getCanvas().style.cursor = '' })
     }
 
+    const addLayers = () => {
+      try {
+        addDataLayers()
+      } catch (err) {
+        console.warn('[StopMap] failed to add stop layers', err)
+      }
+    }
+
     /**
      * Always rebuild data layers on style.load. setStyle() drops sources, and an
      * early-return left the OSM fallback with streets but no stop circles.
      */
-    const addLayers = () => {
+    const addDataLayers = () => {
       clearDataLayers(map)
 
-      const useCluster = clusterRef.current
+      const useCluster = clusterRef.current && !heatRef.current
       map.addSource('stops', {
         type: 'geojson',
         data: toGeo(stopsRef.current, metricRef.current),
@@ -267,8 +278,9 @@ export function StopMap({
         filter: useCluster ? ['!', ['has', 'point_count']] : ['all'],
         paint: {
           'circle-color': circleColor(metricRef.current) as never,
+          // Clustered GeoJSON stringifies properties; interpolate needs a number.
           'circle-radius': [
-            'interpolate', ['linear'], ['get', 'value'],
+            'interpolate', ['linear'], ['to-number', ['get', 'value']],
             0, 7,
             50, 11,
             200, 18,
@@ -280,34 +292,41 @@ export function StopMap({
         },
       })
 
-      map.addLayer({
-        id: 'heat',
-        type: 'heatmap',
-        source: 'stops',
-        maxzoom: 15,
-        paint: {
-          'heatmap-weight': ['interpolate', ['linear'], ['get', 'value'], 0, 0, 200, 1],
-          'heatmap-intensity': 1.1,
-          'heatmap-color': [
-            'interpolate', ['linear'], ['heatmap-density'],
-            0, 'rgba(232,247,239,0)',
-            0.4, 'rgba(168,230,197,0.6)',
-            1, 'rgba(27,122,78,0.9)',
-          ],
-          'heatmap-radius': 24,
-          'heatmap-opacity': heatRef.current ? 0.75 : 0,
-        },
-      })
+      // Heatmap on a clustered source fails in MapLibre and can blank every stop.
+      if (!useCluster) {
+        map.addLayer({
+          id: 'heat',
+          type: 'heatmap',
+          source: 'stops',
+          maxzoom: 15,
+          paint: {
+            'heatmap-weight': [
+              'interpolate', ['linear'], ['to-number', ['get', 'value']], 0, 0, 200, 1,
+            ],
+            'heatmap-intensity': 1.1,
+            'heatmap-color': [
+              'interpolate', ['linear'], ['heatmap-density'],
+              0, 'rgba(232,247,239,0)',
+              0.4, 'rgba(168,230,197,0.6)',
+              1, 'rgba(27,122,78,0.9)',
+            ],
+            'heatmap-radius': 24,
+            'heatmap-opacity': heatRef.current ? 0.75 : 0,
+          },
+        })
+      }
 
       bindHandlers()
+      map.resize()
       setReady(true)
 
-      if (stopsRef.current.length > 0) {
-        const bounds = new LngLatBounds()
-        for (const s of stopsRef.current) bounds.extend([s.longitude, s.latitude])
-        if (!bounds.isEmpty()) {
-          map.fitBounds(bounds, { padding: 48, maxZoom: 13, duration: 0 })
-        }
+      const bounds = new LngLatBounds()
+      for (const s of stopsRef.current) {
+        const ll = parseLngLat(s.latitude, s.longitude)
+        if (ll) bounds.extend([ll.longitude, ll.latitude])
+      }
+      if (!bounds.isEmpty()) {
+        map.fitBounds(bounds, { padding: 48, maxZoom: 13, duration: 0 })
       }
     }
 
@@ -323,7 +342,7 @@ export function StopMap({
 
     const timer = remote ? window.setTimeout(failover, 8000) : 0
     const onError = (e: { error?: { message?: string } }) => {
-      if (import.meta.env.DEV) console.warn('[StopMap]', e?.error?.message ?? e)
+      console.warn('[StopMap]', e?.error?.message ?? e)
     }
     map.on('error', onError)
     map.on('style.load', addLayers)
@@ -334,7 +353,7 @@ export function StopMap({
       map.remove()
       mapRef.current = null
     }
-  }, [basemap, cluster])
+  }, [basemap, cluster, heat])
 
   useEffect(() => {
     const map = mapRef.current
@@ -361,7 +380,10 @@ export function StopMap({
     const map = mapRef.current
     if (!map || !ready || stops.length === 0) return
     const bounds = new LngLatBounds()
-    for (const s of stops) bounds.extend([s.longitude, s.latitude])
+    for (const s of stops) {
+      const ll = parseLngLat(s.latitude, s.longitude)
+      if (ll) bounds.extend([ll.longitude, ll.latitude])
+    }
     if (bounds.isEmpty()) return
     map.fitBounds(bounds, { padding: 48, maxZoom: 13, duration: 500 })
   }, [fitToken, stops, ready])
