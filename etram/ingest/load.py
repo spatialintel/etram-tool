@@ -307,6 +307,58 @@ def load_stop_sequence(cfg: dict, root: Path) -> pd.DataFrame:
     return df.reset_index(drop=True)
 
 
+def broadcast_stop_sequence_to_ticket_dates(
+    stop_sequence: pd.DataFrame,
+    tickets: pd.DataFrame,
+) -> pd.DataFrame:
+    """Copy one uploaded stop chain onto ticket dates that have no sequence.
+
+    May packs share the same StopsSeq across the month, so a single workbook
+    is enough. Dates already present in the upload are left as-is (so a mixed
+    pack with a different chain on some days still wins for those days).
+    """
+    if stop_sequence.empty or tickets.empty or "service_date" not in tickets.columns:
+        return stop_sequence
+
+    needed = pd.DatetimeIndex(
+        pd.to_datetime(tickets["service_date"], errors="coerce").dt.normalize().dropna().unique()
+    ).sort_values()
+    if len(needed) == 0:
+        return stop_sequence
+
+    seq = stop_sequence.copy()
+    seq["service_date"] = pd.to_datetime(seq["service_date"], errors="coerce").dt.normalize()
+    dated = seq.loc[seq["service_date"].notna()].copy()
+    have = set(dated["service_date"].unique()) if not dated.empty else set()
+    missing = [d for d in needed if d not in have]
+    if not missing:
+        return seq
+
+    if not dated.empty:
+        template_date = dated.groupby("service_date").size().idxmax()
+        template = dated.loc[dated["service_date"] == template_date].copy()
+    else:
+        template = seq.copy()
+    if template.empty:
+        return seq
+
+    extras = []
+    for d in missing:
+        part = template.copy()
+        part["service_date"] = d
+        extras.append(part)
+    base = dated if not dated.empty else seq.iloc[0:0]
+    out = pd.concat([base, *extras], ignore_index=True)
+    subset = [
+        c
+        for c in ("agency_id", "service_date", "route_direction_key", "stop_no", "stop_abbr")
+        if c in out.columns
+    ]
+    if subset:
+        out = out.drop_duplicates(subset=subset, keep="first")
+    return out.reset_index(drop=True)
+
+
 def write_parquet_tables(tables: dict[str, pd.DataFrame], out_dir: Path) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
     for name, df in tables.items():
@@ -360,7 +412,7 @@ def run_ingest(mapping_path: Path, root: Path | None = None) -> dict[str, Any]:
     routes = loaded["routes"]
     vehicles = loaded["vehicles"]
     tickets = loaded["tickets"]
-    stop_sequence = loaded["stop_sequence"]
+    stop_sequence = broadcast_stop_sequence_to_ticket_dates(loaded["stop_sequence"], tickets)
     time_slots = make_time_slots()
 
     tables = {

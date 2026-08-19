@@ -323,12 +323,12 @@ export function UploadPage({ onDataLoaded }: { onDataLoaded: (d: DashboardData) 
                 onDrop={e => { e.preventDefault(); handleSlotDrop('stops', e.dataTransfer.files) }}
               >
                 <div className="slot-zone-header">
-                  <span className="slot-label">Stop sequence files</span>
+                  <span className="slot-label">Stop sequence (one file is enough)</span>
                   {stopsFiles.length > 0 && <button type="button" className="link-btn" onClick={() => setStopsFiles([])}>Clear</button>}
                 </div>
                 {stopsFiles.length > 0
                   ? <ul className="slot-file-list">{stopsFiles.map(f => <li key={f.name + f.size}>{f.name}</li>)}</ul>
-                  : <span className="dropzone-hint">Daily StopsSeq Excel files</span>}
+                  : <span className="dropzone-hint">One StopsSeq Excel — applied to every ticket date</span>}
                 <input type="file" accept=".xlsx,.xls" multiple onChange={e => handleSlotDrop('stops', e.target.files)} />
               </div>
             </div>
