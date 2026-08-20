@@ -1,4 +1,6 @@
-/* Filter and input primitives. Tokens only, no hard-coded palette. */
+/* ═══════════════════════════════════════════════════════════════
+   E-TRAM Controls — Premium Filter & Input Primitives
+   ═══════════════════════════════════════════════════════════════ */
 
 /* Fields sit in the filter bar with their labels stacked above the control. */
 .ui-filter-bar {
@@ -28,17 +30,22 @@
   color: var(--text-muted);
 }
 
+/* ── Inputs & Selects ─────────────────────────────────────────── */
+
 .ui-input,
 .ui-select {
   height: 34px;
-  padding: 0 10px;
+  padding: 0 12px;
   font: inherit;
   font-size: 13px;
   color: var(--text-primary);
   background: var(--bg-surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  transition: border-color 0.15s var(--ease), box-shadow 0.15s var(--ease);
+  transition:
+    border-color 0.2s var(--ease),
+    box-shadow 0.2s var(--ease),
+    background 0.2s var(--ease);
 }
 
 .ui-select-sm { height: 28px; font-size: 12px; }
@@ -61,7 +68,7 @@
   outline-offset: 2px;
 }
 
-/* Trigger button shared by MultiSelect and DateRangePicker */
+/* ── Popover / Trigger ────────────────────────────────────────── */
 
 .ui-popover-anchor { position: relative; }
 
@@ -74,9 +81,13 @@
   min-width: 150px;
   cursor: pointer;
   text-align: left;
+  transition: border-color 0.2s var(--ease), box-shadow 0.2s var(--ease);
 }
 
-.ui-select-trigger.is-open { border-color: var(--brand); }
+.ui-select-trigger.is-open {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.1);
+}
 
 .ui-select-value {
   overflow: hidden;
@@ -91,18 +102,29 @@
   border-left: 4px solid transparent;
   border-right: 4px solid transparent;
   border-top: 5px solid var(--text-muted);
+  transition: transform 0.2s var(--ease);
+}
+
+.ui-select-trigger.is-open .ui-select-caret {
+  transform: rotate(180deg);
 }
 
 .ui-popover {
   position: absolute;
   z-index: 40;
-  top: calc(100% + 6px);
+  top: calc(100% + 8px);
   left: 0;
   background: var(--bg-surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-control);
-  box-shadow: var(--shadow-card);
+  box-shadow: var(--shadow-lg);
   padding: 10px;
+  animation: popover-in 0.15s var(--ease-out);
+}
+
+@keyframes popover-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .ui-popover-empty {
@@ -111,7 +133,7 @@
   color: var(--text-muted);
 }
 
-/* MultiSelect */
+/* ── MultiSelect ──────────────────────────────────────────────── */
 
 .ui-multiselect-panel { width: 260px; }
 
@@ -134,11 +156,12 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 5px 4px;
+  padding: 6px 6px;
   font-size: 13px;
   color: var(--text-secondary);
   border-radius: var(--radius-sm);
   cursor: pointer;
+  transition: background 0.12s var(--ease);
 }
 
 .ui-check-row:hover { background: var(--bg-sidebar-hover); }
@@ -154,37 +177,44 @@
   font-weight: 600;
   color: var(--brand);
   cursor: pointer;
+  transition: color 0.15s var(--ease);
 }
 
-.ui-link-btn:hover { text-decoration: underline; }
+.ui-link-btn:hover { text-decoration: underline; text-underline-offset: 2px; }
 
 .ui-icon-btn {
-  width: 26px;
-  height: 26px;
+  width: 28px;
+  height: 28px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: none;
+  background: var(--bg-surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   color: var(--text-secondary);
   cursor: pointer;
+  transition: all 0.15s var(--ease);
+}
+
+.ui-icon-btn:hover:not(:disabled) {
+  border-color: var(--border-strong);
+  background: var(--bg-sidebar-hover);
 }
 
 .ui-icon-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
-/* SegmentedControl */
+/* ── SegmentedControl ─────────────────────────────────────────── */
 
 .ui-segmented {
   display: inline-flex;
-  padding: 2px;
+  padding: 3px;
   background: var(--bg-page);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
 }
 
 .ui-segmented-item {
-  padding: 5px 12px;
+  padding: 5px 14px;
   font: inherit;
   font-size: 12px;
   font-weight: 600;
@@ -193,7 +223,10 @@
   border: none;
   border-radius: 6px;
   cursor: pointer;
-  transition: background 0.15s var(--ease), color 0.15s var(--ease);
+  transition:
+    background 0.2s var(--ease),
+    color 0.2s var(--ease),
+    box-shadow 0.2s var(--ease);
 }
 
 .ui-segmented-sm .ui-segmented-item { padding: 3px 9px; font-size: 11px; }
@@ -206,7 +239,7 @@
   box-shadow: var(--shadow-sm);
 }
 
-/* CheckboxGroup */
+/* ── CheckboxGroup ────────────────────────────────────────────── */
 
 .ui-checkgroup { border: none; }
 
@@ -215,7 +248,7 @@
 .ui-checkgroup-chips { display: flex; flex-wrap: wrap; gap: 4px; }
 
 .ui-toggle-chip {
-  padding: 4px 9px;
+  padding: 5px 10px;
   font: inherit;
   font-size: 12px;
   font-weight: 600;
@@ -224,6 +257,12 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   cursor: pointer;
+  transition: all 0.15s var(--ease);
+}
+
+.ui-toggle-chip:hover {
+  border-color: var(--border-strong);
+  color: var(--text-secondary);
 }
 
 .ui-toggle-chip.is-on {
@@ -232,23 +271,26 @@
   border-color: var(--brand);
 }
 
-/* Switch */
+/* ── Switch ───────────────────────────────────────────────────── */
 
 .ui-switch-row { display: inline-flex; align-items: center; gap: 8px; }
 
 .ui-switch {
   position: relative;
-  width: 34px;
+  width: 36px;
   height: 20px;
   padding: 0;
   background: var(--border-strong);
   border: none;
   border-radius: 999px;
   cursor: pointer;
-  transition: background 0.15s var(--ease);
+  transition: background 0.25s var(--ease-spring);
 }
 
-.ui-switch.is-on { background: var(--brand); }
+.ui-switch.is-on {
+  background: var(--brand);
+  box-shadow: 0 0 8px rgba(5, 150, 105, 0.25);
+}
 
 .ui-switch:disabled { opacity: 0.5; cursor: not-allowed; }
 
@@ -260,14 +302,15 @@
   height: 16px;
   background: #fff;
   border-radius: 50%;
-  transition: transform 0.15s var(--ease);
+  transition: transform 0.25s var(--ease-spring);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
 }
 
-.ui-switch.is-on .ui-switch-thumb { transform: translateX(14px); }
+.ui-switch.is-on .ui-switch-thumb { transform: translateX(16px); }
 
 .ui-switch-label { font-size: 13px; color: var(--text-secondary); cursor: pointer; }
 
-/* RangeSlider */
+/* ── RangeSlider ──────────────────────────────────────────────── */
 
 .ui-range { position: relative; height: 24px; display: flex; align-items: center; min-width: 180px; }
 
@@ -299,25 +342,31 @@
   pointer-events: auto;
   appearance: none;
   -webkit-appearance: none;
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
   background: var(--bg-surface);
   border: 2px solid var(--brand);
   border-radius: 50%;
   cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+  transition: box-shadow 0.15s var(--ease);
+}
+
+.ui-range-input::-webkit-slider-thumb:hover {
+  box-shadow: 0 0 0 4px rgba(5, 150, 105, 0.15), 0 1px 3px rgba(0, 0, 0, 0.15);
 }
 
 .ui-range-input::-moz-range-thumb {
   pointer-events: auto;
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
   background: var(--bg-surface);
   border: 2px solid var(--brand);
   border-radius: 50%;
   cursor: pointer;
 }
 
-/* SearchInput */
+/* ── SearchInput ──────────────────────────────────────────────── */
 
 .ui-search { position: relative; display: inline-flex; align-items: center; }
 
@@ -340,11 +389,12 @@
   border: none;
   border-radius: 50%;
   cursor: pointer;
+  transition: all 0.12s var(--ease);
 }
 
 .ui-search-clear:hover { background: var(--bg-page); color: var(--text-primary); }
 
-/* FilterChips */
+/* ── FilterChips ──────────────────────────────────────────────── */
 
 .ui-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 
@@ -352,11 +402,17 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 3px 6px 3px 9px;
+  padding: 4px 8px 4px 10px;
   font-size: 12px;
   background: var(--bg-surface);
   border: 1px solid var(--border);
   border-radius: 999px;
+  transition: all 0.15s var(--ease);
+}
+
+.ui-chip:hover {
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-xs);
 }
 
 .ui-chip-label { color: var(--text-muted); }
@@ -376,27 +432,33 @@
   border: none;
   border-radius: 50%;
   cursor: pointer;
+  transition: all 0.12s var(--ease);
 }
 
-.ui-chip-remove:hover { background: var(--bg-page); color: var(--red); }
+.ui-chip-remove:hover {
+  background: var(--red-light);
+  color: var(--red);
+}
 
 .ui-chips-clear { margin-left: 2px; }
 
-/* DateRangePicker */
+/* ═══════════════════════════════════════════════════════════════
+   DateRangePicker — Calendar
+   ═══════════════════════════════════════════════════════════════ */
 
-.ui-daterange { display: flex; gap: 12px; padding: 12px; }
+.ui-daterange { display: flex; gap: 14px; padding: 14px; }
 
 .ui-daterange-presets {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding-right: 12px;
+  padding-right: 14px;
   border-right: 1px solid var(--border-subtle);
   min-width: 130px;
 }
 
 .ui-preset {
-  padding: 6px 8px;
+  padding: 7px 10px;
   font: inherit;
   font-size: 12px;
   text-align: left;
@@ -406,11 +468,16 @@
   border-radius: var(--radius-sm);
   cursor: pointer;
   white-space: nowrap;
+  transition: all 0.12s var(--ease);
 }
 
 .ui-preset:hover { background: var(--bg-sidebar-hover); }
 
-.ui-preset.is-active { background: var(--brand-soft); color: var(--brand); font-weight: 600; }
+.ui-preset.is-active {
+  background: var(--brand-soft);
+  color: var(--brand);
+  font-weight: 600;
+}
 
 .ui-daterange-body { display: flex; flex-direction: column; gap: 8px; }
 
@@ -422,16 +489,16 @@
 
 .ui-month-title {
   margin-bottom: 6px;
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 700;
   color: var(--text-primary);
   text-align: center;
 }
 
-.ui-month-grid { display: grid; grid-template-columns: repeat(7, 28px); gap: 2px; }
+.ui-month-grid { display: grid; grid-template-columns: repeat(7, 30px); gap: 2px; }
 
 .ui-month-weekday {
-  height: 20px;
+  height: 22px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -441,14 +508,15 @@
 }
 
 .ui-day {
-  height: 28px;
+  height: 30px;
   font: inherit;
   font-size: 12px;
   color: var(--text-secondary);
   background: none;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: 50%;
   cursor: pointer;
+  transition: all 0.12s var(--ease);
 }
 
 .ui-day.is-pad { visibility: hidden; }
@@ -461,7 +529,12 @@
 
 .ui-day.is-selected { background: var(--brand-soft); color: var(--brand); }
 
-.ui-day.is-edge { background: var(--brand); color: #fff; font-weight: 600; }
+.ui-day.is-edge {
+  background: var(--brand);
+  color: #fff;
+  font-weight: 600;
+  box-shadow: 0 1px 4px rgba(5, 150, 105, 0.3);
+}
 
 .ui-daterange-compare { border-top: 1px solid var(--border-subtle); padding-top: 8px; margin-top: 2px; }
 
@@ -507,7 +580,7 @@
 .ui-compare-flag {
   flex: none;
   margin-left: 6px;
-  padding: 1px 6px;
+  padding: 2px 8px;
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.04em;
@@ -517,12 +590,15 @@
   border-radius: 999px;
 }
 
+/* ── Reduced Motion ───────────────────────────────────────────── */
+
 @media (prefers-reduced-motion: reduce) {
   .ui-input,
   .ui-select,
   .ui-segmented-item,
   .ui-switch,
-  .ui-switch-thumb {
+  .ui-switch-thumb,
+  .ui-select-caret {
     transition: none;
   }
 }
