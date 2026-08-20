@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react'
+
 export interface SidebarItem {
   id: string
   label: string
@@ -138,7 +140,7 @@ function DefinitionsIcon() {
   )
 }
 
-const NAV_ICONS: Record<string, () => JSX.Element> = {
+const NAV_ICONS: Record<string, () => ReactElement> = {
   overview: OverviewIcon,
   routes: RouteIcon,
   entities: EntitiesIcon,
